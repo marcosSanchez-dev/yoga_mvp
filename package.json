@@ -1,0 +1,28 @@
+{
+  "name": "yoga-mvp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "openai-proxy.js",
+  "scripts": {
+    "start": "node openai-proxy.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marcosSanchez-dev/yoga_mvp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/marcosSanchez-dev/yoga_mvp/issues"
+  },
+  "homepage": "https://github.com/marcosSanchez-dev/yoga_mvp#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2"
+  }
+}
