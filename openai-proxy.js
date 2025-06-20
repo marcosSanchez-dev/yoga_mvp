@@ -1,7 +1,7 @@
 import express from "express";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
-import cors from "cors"; // Añade esta importación
+import cors from "cors";
 
 dotenv.config();
 
@@ -11,8 +11,8 @@ const app = express();
 app.use(
   cors({
     origin: ["http://127.0.0.1:5500", "http://localhost:5500"],
-    methods: ["POST"], // Especifica los métodos permitidos
-    allowedHeaders: ["Content-Type"], // Especifica los headers permitidos
+    methods: ["POST"],
+    allowedHeaders: ["Content-Type"],
   })
 );
 
@@ -20,11 +20,39 @@ app.use(express.json());
 
 app.post("/feedback", async (req, res) => {
   try {
-    const { input } = req.body;
+    const { poseDescription, imageData, isAuto } = req.body;
 
-    if (!input) {
-      return res.status(400).json({ error: "Input faltante" });
+    if (!imageData) {
+      return res.status(400).json({ error: "Imagen faltante" });
     }
+
+    // Crear prompt dinámico basado en el tipo de solicitud
+    const systemPrompt = isAuto
+      ? "Eres un maestro de yoga observando a un estudiante en tiempo real. Analiza su postura y da retroalimentación breve (1-2 oraciones), específica y constructiva. Señala un aspecto positivo y una pequeña mejora. Varía tus respuestas."
+      : "Eres un maestro de yoga dando feedback detallado. Analiza la postura del estudiante y ofrece sugerencias específicas para mejorar (3-4 oraciones). Sé técnico pero claro.";
+
+    const messages = [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: poseDescription || "Estudiante manteniendo pose de yoga",
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: imageData,
+              detail: "high", // Alta resolución para mejor análisis
+            },
+          },
+        ],
+      },
+    ];
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -33,24 +61,16 @@ app.post("/feedback", async (req, res) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "Actúa como un maestro de yoga profesional...",
-          },
-          {
-            role: "user",
-            content: input,
-          },
-        ],
+        model: "gpt-4-turbo", // Usamos modelo con visión
+        messages,
+        max_tokens: 300,
         temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Error de OpenAI:", errorData);
+      const errorText = await response.text();
+      console.error("Error de OpenAI:", response.status, errorText);
       return res.status(500).json({ error: "Error en OpenAI API" });
     }
 

@@ -8,6 +8,8 @@ const feedbackContainer = document.getElementById("feedbackContainer");
 
 let pose;
 let camera;
+let canvas;
+let ctx;
 
 // Variables globales de pose para el feedback
 let headY = null;
@@ -16,8 +18,16 @@ let rightHandY = null;
 
 // Variables para control de frecuencia de feedback
 let lastAutoFeedbackTime = 0;
-const MIN_FEEDBACK_INTERVAL = 8000; // 8 segundos entre feedbacks automáticos
+const MIN_FEEDBACK_INTERVAL = 5000; // 5 segundos entre feedbacks automáticos
 let isGeneratingFeedback = false;
+
+// Crear canvas para capturas
+function setupCanvas() {
+  canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx = canvas.getContext("2d");
+}
 
 startBtn.addEventListener("click", async () => {
   try {
@@ -29,7 +39,12 @@ startBtn.addEventListener("click", async () => {
       },
     });
     video.srcObject = stream;
-    detectBtn.disabled = false;
+
+    // Esperar a que el video cargue para configurar canvas
+    video.onloadedmetadata = () => {
+      setupCanvas();
+      detectBtn.disabled = false;
+    };
   } catch (err) {
     alert("No se pudo acceder a la cámara: " + err.message);
   }
@@ -64,10 +79,7 @@ function onResults(results) {
       !isGeneratingFeedback &&
       now - lastAutoFeedbackTime > MIN_FEEDBACK_INTERVAL
     ) {
-      requestFeedback(
-        "Estoy manteniendo la pose de brazos arriba. ¿Cómo puedo mejorar?",
-        true
-      );
+      captureAndSendFeedback();
       lastAutoFeedbackTime = now;
     }
   } else {
@@ -77,7 +89,25 @@ function onResults(results) {
   }
 }
 
-async function requestFeedback(input, isAuto = false) {
+// Capturar imagen y enviar feedback
+function captureAndSendFeedback(isManual = false) {
+  if (!canvas || !ctx) return;
+
+  // Dibujar el frame actual en el canvas
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // Obtener imagen como base64
+  const imageData = canvas.toDataURL("image/jpeg", 0.8);
+
+  // Crear descripción básica de la pose
+  const poseDescription =
+    "El usuario está manteniendo una pose de brazos arriba. ";
+
+  // Enviar para feedback
+  requestFeedback(poseDescription, imageData, !isManual);
+}
+
+async function requestFeedback(poseDescription, imageData, isAuto = false) {
   if (isGeneratingFeedback) return;
 
   isGeneratingFeedback = true;
@@ -86,10 +116,17 @@ async function requestFeedback(input, isAuto = false) {
   const loadingMessage = showLoadingMessage(isAuto);
 
   try {
+    // Crear payload con imagen y descripción
+    const payload = {
+      poseDescription,
+      imageData,
+      isAuto,
+    };
+
     const res = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();
@@ -118,17 +155,17 @@ function showLoadingMessage(isAuto) {
 
   if (isAuto) {
     messageDiv.innerHTML = `
-      <div class="auto-indicator">🤖 AUTO</div>
+      <div class="auto-indicator">🧘‍♂️ ANALIZANDO</div>
       <div class="message-content">
-        <div class="thinking-indicator">Analizando tu pose...</div>
+        <div class="thinking-indicator">Observando tu pose...</div>
         <div class="spinner"></div>
       </div>
     `;
-    messageDiv.style.borderLeft = "4px solid #4CAF50";
+    messageDiv.style.borderLeft = "4px solid #FF9800";
   } else {
     messageDiv.innerHTML = `
       <div class="message-content">
-        <div class="thinking-indicator">Analizando tu pose...</div>
+        <div class="thinking-indicator">Analizando tu postura...</div>
         <div class="spinner"></div>
       </div>
     `;
@@ -153,7 +190,7 @@ function replaceLoadingMessage(loadingId, message, isAuto) {
   messageDiv.className = "feedback-message";
 
   if (isAuto) {
-    messageDiv.innerHTML = `<div class="auto-indicator">🤖 AUTO</div><div class="message-content">${message}</div>`;
+    messageDiv.innerHTML = `<div class="auto-indicator">🧘‍♂️ MAESTRO</div><div class="message-content">${message}</div>`;
     messageDiv.style.borderLeft = "4px solid #4CAF50";
   } else {
     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
@@ -183,7 +220,7 @@ async function setupPose() {
   });
 
   pose.setOptions({
-    modelComplexity: 0,
+    modelComplexity: 1, // Aumentamos a medio para mejor precisión
     smoothLandmarks: true,
     enableSegmentation: false,
     minDetectionConfidence: 0.5,
@@ -213,20 +250,12 @@ feedbackBtn.addEventListener("click", async () => {
 
   // Verificar si tenemos datos de la pose
   if (headY === null || leftHandY === null || rightHandY === null) {
-    requestFeedback(
-      "No tengo datos suficientes de tu pose. Por favor, asegúrate de estar bien posicionado.",
-      false
-    );
+    addFeedbackToHistory("Esperando datos de tu pose...", false);
     feedbackBtn.disabled = false;
     return;
   }
 
-  const input =
-    leftHandY < headY && rightHandY < headY
-      ? "Estoy manteniendo la pose de brazos arriba. ¿Qué ajustes puedo hacer para mejorarla?"
-      : "Estoy teniendo dificultades para mantener los brazos arriba. ¿Qué debo hacer?";
-
-  await requestFeedback(input, false);
+  captureAndSendFeedback(true);
   feedbackBtn.disabled = false;
 });
 
@@ -259,19 +288,13 @@ speakBtn.addEventListener("click", () => {
   }
 });
 
-// Mensaje inicial
-addFeedbackToHistory(
-  "Bienvenido al Maestro de Yoga Virtual. Mantén la pose de brazos arriba para recibir feedback personalizado.",
-  false
-);
-
 // Función auxiliar para añadir mensajes iniciales
 function addFeedbackToHistory(message, isAuto) {
   const messageDiv = document.createElement("div");
   messageDiv.className = "feedback-message";
 
   if (isAuto) {
-    messageDiv.innerHTML = `<div class="auto-indicator">🤖 AUTO</div><div class="message-content">${message}</div>`;
+    messageDiv.innerHTML = `<div class="auto-indicator">🧘‍♂️ MAESTRO</div><div class="message-content">${message}</div>`;
     messageDiv.style.borderLeft = "4px solid #4CAF50";
   } else {
     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
@@ -280,3 +303,9 @@ function addFeedbackToHistory(message, isAuto) {
 
   feedbackContainer.appendChild(messageDiv);
 }
+
+// Mensaje inicial
+addFeedbackToHistory(
+  "Bienvenido al Maestro de Yoga Virtual. Mantén la pose mientras analizo tu postura en tiempo real.",
+  false
+);
