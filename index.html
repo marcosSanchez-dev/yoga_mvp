@@ -14,11 +14,42 @@
       <button id="languageToggle">English</button>
     </div>
 
-    <video id="videoElement" autoplay playsinline muted></video>
+    <!-- Contenedor para cámara y referencia -->
+    <div class="camera-reference-container">
+      <div class="camera-box">
+        <video id="videoElement" autoplay playsinline muted></video>
+        <div class="camera-label">TU POSTURA</div>
+      </div>
+
+      <div class="reference-box">
+        <div id="referenceTitle">Pose Objetivo: Brazos Arriba</div>
+        <div id="referenceLoading" class="reference-loading">
+          Analizando pose de referencia...
+        </div>
+        <img
+          id="poseReference"
+          style="display: none"
+          alt="Pose de referencia"
+        />
+      </div>
+    </div>
+
+    <!-- Barra de similitud -->
+    <!-- <div class="similarity-container">
+      <div class="similarity-labels">
+        <span>${languageStrings[currentLanguage].referenceScore}</span>
+        <span id="similarityText">0%</span>
+        <span>${languageStrings[currentLanguage].yourScore}</span>
+      </div>
+      <div id="similarityBar" class="similarity-bar">
+        <div id="similarityFill" class="similarity-fill"></div>
+      </div>
+    </div> -->
 
     <div class="controls">
       <button id="startBtn">Iniciar Cámara</button>
       <button id="toggleDetectBtn" disabled>Iniciar Detección</button>
+      <button id="toggleReferenceBtn">Ocultar Referencia</button>
     </div>
 
     <div id="poseResult">Esperando...</div>

@@ -1,3 +1,4 @@
+/* === GLOBAL === */
 body {
   background: #1a1a2e;
   font-family: sans-serif;
@@ -12,40 +13,46 @@ h1 {
   margin-bottom: 20px;
 }
 
-video {
+video,
+#poseReference {
   width: 320px;
   height: 240px;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+  object-fit: cover;
 }
 
-/* Botones generales */
+/* === BUTTONS === */
 button,
-.controls button {
+.controls button,
+.language-toggle button,
+#toggleReferenceBtn {
   padding: 10px 15px;
-  background-color: #4ecdc4;
-  color: #000;
   font-weight: bold;
   border: none;
   border-radius: 20px;
   cursor: pointer;
-  margin: 5px;
   transition: background-color 0.3s;
 }
 
-/* Estilo base para botones en controles */
+button {
+  background-color: #4ecdc4;
+  color: #000;
+}
+
 .controls button {
   background-color: #4a76d0;
   color: white;
   border-radius: 4px;
-  font-weight: 500;
   min-width: 120px;
   flex: 1;
+  font-weight: 500;
 }
 
-/* Estados de botón */
-.controls button:hover:not(:disabled) {
-  background-color: #3a66c0;
+.controls button:hover:not(:disabled),
+#toggleReferenceBtn:hover,
+.language-toggle button:hover {
+  background-color: #34495e;
 }
 
 .controls button:disabled {
@@ -63,7 +70,13 @@ button,
   background-color: #4caf50;
 }
 
-/* Contenedor de controles */
+#toggleReferenceBtn,
+.language-toggle button {
+  background-color: #5d6d7e;
+  color: white;
+}
+
+/* === CONTROLS === */
 .controls {
   display: flex;
   gap: 10px;
@@ -72,7 +85,7 @@ button,
   margin: 15px 0;
 }
 
-/* Resultados y feedback */
+/* === FEEDBACK === */
 #poseResult {
   margin-top: 20px;
   font-size: 1.2em;
@@ -84,7 +97,6 @@ button,
   opacity: 0.8;
 }
 
-/* Contenedor de feedback */
 #feedbackContainer {
   max-height: 400px;
   overflow-y: auto;
@@ -97,7 +109,6 @@ button,
   color: black;
 }
 
-/* Mensaje de feedback */
 .feedback-message {
   padding: 12px;
   margin: 10px 0;
@@ -108,11 +119,15 @@ button,
 }
 
 .feedback-message.loading {
-  opacity: 0.9;
   background-color: #f5f9ff;
+  opacity: 0.9;
 }
 
-/* Indicadores */
+.message-content {
+  font-size: 1em;
+  line-height: 1.4;
+}
+
 .auto-indicator {
   font-size: 0.8em;
   font-weight: bold;
@@ -126,24 +141,108 @@ button,
   margin-bottom: 5px;
 }
 
-/* Contenido del mensaje */
-.message-content {
-  font-size: 1em;
-  line-height: 1.4;
+/* === CAMERA & REFERENCE === */
+.camera-reference-container {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-/* Animaciones */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.camera-box,
+.reference-box {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
 }
 
+.camera-box {
+  border: 2px solid #4a76d0;
+}
+
+.reference-box {
+  border: 2px solid #4caf50;
+  background: #f9f9f9;
+  color: #333;
+  max-width: 320px;
+}
+
+.camera-label,
+#referenceTitle {
+  text-align: center;
+  font-weight: bold;
+  padding: 5px 10px;
+  color: white;
+}
+
+.camera-label {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: rgba(74, 118, 208, 0.7);
+}
+
+#referenceTitle {
+  background: #4caf50;
+}
+
+#poseReference {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  width: 100%;
+  height: calc(100% - 40px);
+  display: none;
+}
+
+/* === SIMILARITY BAR === */
+.similarity-container {
+  margin: 15px 0;
+  width: 100%;
+  max-width: 600px;
+}
+
+.similarity-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 0.9em;
+  color: #aaa;
+}
+
+.similarity-bar {
+  height: 20px;
+  background: #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.similarity-fill {
+  height: 100%;
+  width: 0%;
+  background: #4caf50;
+  transition: width 0.5s ease-in-out;
+  border-radius: 10px;
+}
+
+/* === LANGUAGE TOGGLE === */
+.language-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+/* === LOADING STATE === */
+.reference-loading {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+/* === SPINNER === */
 .spinner {
   display: inline-block;
   width: 16px;
@@ -162,24 +261,102 @@ button,
   }
 }
 
-/* Nuevos estilos para el toggle de idioma */
-.language-toggle {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.language-toggle button {
-  padding: 8px 15px;
-  background: #5d6d7e;
-  border: none;
-  border-radius: 20px;
-  color: white;
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .camera-reference-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .camera-box,
+  .reference-box {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  video,
+  #poseReference {
+    width: 100%;
+    height: auto;
+    max-height: 50vh;
+  }
+}
+
+/* Contenedor de valores */
+.values-container {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  max-width: 800px;
+  margin: 15px 0;
+}
+
+.values-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.values-box {
+  background: #2c3e50;
+  border-radius: 8px;
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: monospace;
+}
+
+.values-header {
   font-weight: bold;
-  cursor: pointer;
-  transition: background 0.3s;
+  text-align: center;
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #4a76d0;
+  color: #4ecdc4;
 }
 
-.language-toggle button:hover {
-  background: #34495e;
+.value-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 0.85em;
+  padding: 3px;
+  border-radius: 4px;
+}
+
+.value-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.point-label {
+  flex: 1;
+  color: #ecf0f1;
+}
+
+.highlight {
+  color: #ff9800;
+  font-weight: bold;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    background-color: rgba(255, 152, 0, 0.1);
+  }
+  50% {
+    background-color: rgba(255, 152, 0, 0.3);
+  }
+  100% {
+    background-color: rgba(255, 152, 0, 0.1);
+  }
 }
