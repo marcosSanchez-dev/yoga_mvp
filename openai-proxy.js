@@ -20,20 +20,36 @@ app.use(express.json());
 
 app.post("/feedback", async (req, res) => {
   try {
-    const { poseDescription, imageData, isAuto, language } = req.body;
+    const { poseDescription, imageData, isAuto, language, similarityScore } =
+      req.body;
 
-    if (!imageData) {
-      return res.status(400).json({ error: "Imagen faltante" });
+    // Crear prompt dinámico basado en el tipo de solicitud e idioma
+    let systemPrompt;
+    if (isAuto) {
+      systemPrompt =
+        language === "es"
+          ? `Eres un maestro de yoga observando a un estudiante en tiempo real. 
+           Analiza su postura comparándola con la pose ideal de brazos arriba (Urdhva Hastasana). 
+           La similitud calculada es ${(similarityScore * 100).toFixed(0)}%.
+           Da retroalimentación breve (1-2 oraciones), específica y constructiva. 
+           Señala un aspecto positivo y una pequeña mejora. Varía tus respuestas.`
+          : `You are a yoga teacher watching a student in real time. 
+           Analyze their posture comparing it to the ideal Arms Up pose (Urdhva Hastasana). 
+           The calculated similarity is ${(similarityScore * 100).toFixed(0)}%.
+           Give brief feedback (1-2 sentences), specific and constructive. 
+           Point out one positive aspect and one small improvement. Vary your responses.`;
+    } else {
+      systemPrompt =
+        language === "es"
+          ? `Eres un maestro de yoga dando feedback detallado. 
+           Analiza la postura del estudiante comparándola con la pose ideal de brazos arriba (Urdhva Hastasana). 
+           La similitud calculada es ${(similarityScore * 100).toFixed(0)}%.
+           Ofrece sugerencias específicas para mejorar (3-4 oraciones). Sé técnico pero claro.`
+          : `You are a yoga teacher giving detailed feedback. 
+           Analyze the student's posture comparing it to the ideal Arms Up pose (Urdhva Hastasana). 
+           The calculated similarity is ${(similarityScore * 100).toFixed(0)}%.
+           Offer specific suggestions for improvement (3-4 sentences). Be technical but clear.`;
     }
-
-    // Crear prompt dinámico basado en el tipo de solicitud
-    const systemPrompt = isAuto
-      ? language === "es"
-        ? "Eres un maestro de yoga observando a un estudiante en tiempo real. Analiza su postura y da retroalimentación breve (1-2 oraciones), específica y constructiva. Señala un aspecto positivo y una pequeña mejora. Varía tus respuestas."
-        : "You are a yoga teacher watching a student in real time. Analyze their posture and give brief feedback (1-2 sentences), specific and constructive. Point out one positive aspect and one small improvement. Vary your responses."
-      : language === "es"
-      ? "Eres un maestro de yoga dando feedback detallado. Analiza la postura del estudiante y ofrece sugerencias específicas para mejorar (3-4 oraciones). Sé técnico pero claro."
-      : "You are a yoga teacher giving detailed feedback. Analyze the student's posture and offer specific suggestions for improvement (3-4 sentences). Be technical but clear.";
 
     const messages = [
       {
@@ -45,13 +61,17 @@ app.post("/feedback", async (req, res) => {
         content: [
           {
             type: "text",
-            text: poseDescription || "Estudiante manteniendo pose de yoga",
+            text:
+              poseDescription ||
+              (language === "es"
+                ? "Estudiante manteniendo pose de yoga"
+                : "Student maintaining yoga pose"),
           },
           {
             type: "image_url",
             image_url: {
               url: imageData,
-              detail: "high", // Alta resolución para mejor análisis
+              detail: "high",
             },
           },
         ],
