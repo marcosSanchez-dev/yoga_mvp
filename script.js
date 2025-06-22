@@ -1,8 +1,6 @@
 const video = document.getElementById("videoElement");
 const startBtn = document.getElementById("startBtn");
-const detectBtn = document.getElementById("detectBtn");
-const feedbackBtn = document.getElementById("feedbackBtn");
-const speakBtn = document.getElementById("speakBtn");
+const toggleDetectBtn = document.getElementById("toggleDetectBtn");
 const poseResult = document.getElementById("poseResult");
 const feedbackContainer = document.getElementById("feedbackContainer");
 
@@ -10,11 +8,18 @@ let pose;
 let camera;
 let canvas;
 let ctx;
+let stream = null; // Para mantener referencia al stream de la cámara
+let isDetectionActive = false; // Estado de la detección
 
 // Variables globales de pose para el feedback
 let headY = null;
 let leftHandY = null;
 let rightHandY = null;
+
+// Sistema de cola para reproducción de voz
+let speechQueue = [];
+let isSpeaking = false;
+let currentUtterance = null;
 
 // Variables para control de frecuencia de feedback
 let lastAutoFeedbackTime = 0;
@@ -31,30 +36,68 @@ function setupCanvas() {
 
 startBtn.addEventListener("click", async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    // Detener detección si está activa
+    if (isDetectionActive) {
+      stopDetection();
+    }
+
+    // Detener cámara anterior si existe
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+
+    // Iniciar nueva cámara
+    stream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: "user",
         width: { ideal: 640 },
         height: { ideal: 480 },
       },
     });
-    video.srcObject = stream;
 
-    // Esperar a que el video cargue para configurar canvas
+    video.srcObject = stream;
+    startBtn.textContent = "Reiniciar Cámara";
+
+    // Configurar canvas cuando el video esté listo
     video.onloadedmetadata = () => {
       setupCanvas();
-      detectBtn.disabled = false;
+      toggleDetectBtn.disabled = false;
+      toggleDetectBtn.textContent = "Iniciar Detección";
     };
   } catch (err) {
     alert("No se pudo acceder a la cámara: " + err.message);
   }
 });
 
-detectBtn.addEventListener("click", () => {
-  setupPose();
+// Función para detener la detección
+function stopDetection() {
+  if (camera) {
+    camera.stop();
+  }
+  isDetectionActive = false;
+  toggleDetectBtn.textContent = "Iniciar Detección";
+  poseResult.textContent = "Detección detenida";
+}
+
+// Modificar evento de detección (toggle)
+toggleDetectBtn.addEventListener("click", () => {
+  if (!isDetectionActive) {
+    // Iniciar detección
+    setupPose();
+    isDetectionActive = true;
+    toggleDetectBtn.textContent = "Detener Detección";
+    poseResult.textContent = "Detectando pose...";
+    toggleDetectBtn.classList.add("active");
+  } else {
+    // Detener detección
+    stopDetection();
+    toggleDetectBtn.classList.remove("active");
+  }
 });
 
 function onResults(results) {
+  if (!isDetectionActive) return; // No procesar si la detección está desactivada
+
   if (!results.poseLandmarks) {
     poseResult.textContent = "❌ No se detecta el cuerpo";
     // Resetear valores
@@ -70,22 +113,18 @@ function onResults(results) {
   // Condición: brazos arriba (manos por encima de la cabeza)
   if (leftHandY < headY && rightHandY < headY) {
     poseResult.textContent = "✅ Pose detectada: Brazos Arriba";
-    feedbackBtn.disabled = false;
-    speakBtn.disabled = false;
 
-    // Solo enviar feedback automático si ha pasado el tiempo mínimo y no está generando
     const now = Date.now();
     if (
       !isGeneratingFeedback &&
-      now - lastAutoFeedbackTime > MIN_FEEDBACK_INTERVAL
+      now - lastAutoFeedbackTime > MIN_FEEDBACK_INTERVAL &&
+      !isSpeaking // <-- Añadir esta condición
     ) {
       captureAndSendFeedback();
       lastAutoFeedbackTime = now;
     }
   } else {
     poseResult.textContent = "❌ No estás levantando ambos brazos";
-    feedbackBtn.disabled = true;
-    speakBtn.disabled = true;
   }
 }
 
@@ -192,6 +231,7 @@ function replaceLoadingMessage(loadingId, message, isAuto) {
   if (isAuto) {
     messageDiv.innerHTML = `<div class="auto-indicator">🧘‍♂️ MAESTRO</div><div class="message-content">${message}</div>`;
     messageDiv.style.borderLeft = "4px solid #4CAF50";
+    speakText(message);
   } else {
     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
     messageDiv.style.borderLeft = "4px solid #2196F3";
@@ -207,12 +247,18 @@ function replaceLoadingMessage(loadingId, message, isAuto) {
   if (messages.length > 5) {
     feedbackContainer.removeChild(messages[messages.length - 1]);
   }
-
-  // Habilitar botón de hablar para el último mensaje
-  speakBtn.disabled = false;
 }
 
 async function setupPose() {
+  // Detener instancia anterior si existe
+  if (pose) {
+    try {
+      await pose.close();
+    } catch (e) {
+      console.warn("Error cerrando instancia anterior de Pose:", e);
+    }
+  }
+
   pose = new Pose({
     locateFile: (file) => {
       return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`;
@@ -230,12 +276,19 @@ async function setupPose() {
 
   pose.onResults(onResults);
 
+  // Reiniciar cámara de MediaPipe
+  if (camera) {
+    camera.stop();
+  }
+
   camera = new Camera(video, {
     onFrame: async () => {
-      try {
-        await pose.send({ image: video });
-      } catch (err) {
-        console.error("Error en detección de pose:", err);
+      if (isDetectionActive) {
+        try {
+          await pose.send({ image: video });
+        } catch (err) {
+          console.error("Error en detección de pose:", err);
+        }
       }
     },
     width: 640,
@@ -244,49 +297,6 @@ async function setupPose() {
 
   camera.start();
 }
-
-feedbackBtn.addEventListener("click", async () => {
-  feedbackBtn.disabled = true;
-
-  // Verificar si tenemos datos de la pose
-  if (headY === null || leftHandY === null || rightHandY === null) {
-    addFeedbackToHistory("Esperando datos de tu pose...", false);
-    feedbackBtn.disabled = false;
-    return;
-  }
-
-  captureAndSendFeedback(true);
-  feedbackBtn.disabled = false;
-});
-
-// Botón para hablar el último feedback
-speakBtn.addEventListener("click", () => {
-  const messages = feedbackContainer.querySelectorAll(
-    ".feedback-message:not(.loading)"
-  );
-  if (messages.length > 0) {
-    const lastMessage = messages[0];
-    const messageContent = lastMessage.querySelector(".message-content");
-    const text = messageContent
-      ? messageContent.textContent
-      : lastMessage.textContent;
-
-    if ("speechSynthesis" in window && text.length > 0) {
-      // Cancelar cualquier habla previa
-      speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "es-ES";
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
-      speechSynthesis.speak(utterance);
-    } else {
-      alert("Tu navegador no soporta síntesis de voz.");
-    }
-  }
-});
 
 // Función auxiliar para añadir mensajes iniciales
 function addFeedbackToHistory(message, isAuto) {
@@ -309,3 +319,35 @@ addFeedbackToHistory(
   "Bienvenido al Maestro de Yoga Virtual. Mantén la pose mientras analizo tu postura en tiempo real.",
   false
 );
+
+function speakText(text) {
+  if (!text) return;
+
+  // Agregar a la cola
+  speechQueue.push(text);
+
+  // Reproducir si no hay nada en curso
+  if (!isSpeaking) {
+    processSpeechQueue();
+  }
+}
+
+function processSpeechQueue() {
+  if (speechQueue.length === 0 || isSpeaking) return;
+
+  isSpeaking = true;
+  const text = speechQueue.shift();
+
+  currentUtterance = new SpeechSynthesisUtterance(text);
+  currentUtterance.lang = "es-MX";
+  currentUtterance.rate = 0.9;
+  currentUtterance.pitch = 1;
+  currentUtterance.volume = 1;
+
+  currentUtterance.onend = () => {
+    isSpeaking = false;
+    setTimeout(processSpeechQueue, 500); // Pequeña pausa entre mensajes
+  };
+
+  speechSynthesis.speak(currentUtterance);
+}

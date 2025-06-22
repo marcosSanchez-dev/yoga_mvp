@@ -7,39 +7,84 @@ body {
   align-items: center;
   padding: 20px;
 }
+
 h1 {
   margin-bottom: 20px;
 }
+
 video {
   width: 320px;
   height: 240px;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
-.controls {
-  margin-top: 20px;
-}
-button {
-  margin: 5px;
-  padding: 10px 20px;
-  background: #4ecdc4;
-  border: none;
-  border-radius: 20px;
+
+/* Botones generales */
+button,
+.controls button {
+  padding: 10px 15px;
+  background-color: #4ecdc4;
   color: #000;
   font-weight: bold;
+  border: none;
+  border-radius: 20px;
   cursor: pointer;
+  margin: 5px;
+  transition: background-color 0.3s;
 }
+
+/* Estilo base para botones en controles */
+.controls button {
+  background-color: #4a76d0;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  min-width: 120px;
+  flex: 1;
+}
+
+/* Estados de botón */
+.controls button:hover:not(:disabled) {
+  background-color: #3a66c0;
+}
+
+.controls button:disabled {
+  background-color: #cccccc;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.controls button.active {
+  background-color: #f44336;
+  box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
+}
+
+#toggleDetectBtn.active {
+  background-color: #4caf50;
+}
+
+/* Contenedor de controles */
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 15px 0;
+}
+
+/* Resultados y feedback */
 #poseResult {
   margin-top: 20px;
   font-size: 1.2em;
 }
+
 #feedbackText {
   margin-top: 10px;
   font-style: italic;
   opacity: 0.8;
 }
-/* Estilos para el contenedor de feedback */
-/* Estilos para el contenedor de feedback */
+
+/* Contenedor de feedback */
 #feedbackContainer {
   max-height: 400px;
   overflow-y: auto;
@@ -52,7 +97,7 @@ button {
   color: black;
 }
 
-/* Estilos para cada mensaje de feedback */
+/* Mensaje de feedback */
 .feedback-message {
   padding: 12px;
   margin: 10px 0;
@@ -62,13 +107,32 @@ button {
   animation: fadeIn 0.4s ease-out;
 }
 
-/* Mensajes de carga */
 .feedback-message.loading {
   opacity: 0.9;
   background-color: #f5f9ff;
 }
 
-/* Animación de entrada */
+/* Indicadores */
+.auto-indicator {
+  font-size: 0.8em;
+  font-weight: bold;
+  color: #4caf50;
+  margin-bottom: 5px;
+}
+
+.thinking-indicator {
+  font-style: italic;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+/* Contenido del mensaje */
+.message-content {
+  font-size: 1em;
+  line-height: 1.4;
+}
+
+/* Animaciones */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -80,28 +144,6 @@ button {
   }
 }
 
-/* Indicador para feedback automático */
-.auto-indicator {
-  font-size: 0.8em;
-  font-weight: bold;
-  color: #4caf50;
-  margin-bottom: 5px;
-}
-
-/* Contenido del mensaje */
-.message-content {
-  font-size: 1em;
-  line-height: 1.4;
-}
-
-/* Indicador de pensando */
-.thinking-indicator {
-  font-style: italic;
-  color: #666;
-  margin-bottom: 5px;
-}
-
-/* Spinner de carga */
 .spinner {
   display: inline-block;
   width: 16px;
@@ -118,32 +160,4 @@ button {
   to {
     transform: rotate(360deg);
   }
-}
-
-/* Botones de control */
-.controls {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 15px 0;
-}
-
-.controls button {
-  padding: 10px 15px;
-  background-color: #4a76d0;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  font-weight: 500;
-}
-
-.controls button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-.controls button:hover:not(:disabled) {
-  background-color: #3a66c0;
 }
