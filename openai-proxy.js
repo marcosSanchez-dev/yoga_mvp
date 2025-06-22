@@ -20,7 +20,7 @@ app.use(express.json());
 
 app.post("/feedback", async (req, res) => {
   try {
-    const { poseDescription, imageData, isAuto } = req.body;
+    const { poseDescription, imageData, isAuto, language } = req.body;
 
     if (!imageData) {
       return res.status(400).json({ error: "Imagen faltante" });
@@ -28,8 +28,12 @@ app.post("/feedback", async (req, res) => {
 
     // Crear prompt dinámico basado en el tipo de solicitud
     const systemPrompt = isAuto
-      ? "Eres un maestro de yoga observando a un estudiante en tiempo real. Analiza su postura y da retroalimentación breve (1-2 oraciones), específica y constructiva. Señala un aspecto positivo y una pequeña mejora. Varía tus respuestas."
-      : "Eres un maestro de yoga dando feedback detallado. Analiza la postura del estudiante y ofrece sugerencias específicas para mejorar (3-4 oraciones). Sé técnico pero claro.";
+      ? language === "es"
+        ? "Eres un maestro de yoga observando a un estudiante en tiempo real. Analiza su postura y da retroalimentación breve (1-2 oraciones), específica y constructiva. Señala un aspecto positivo y una pequeña mejora. Varía tus respuestas."
+        : "You are a yoga teacher watching a student in real time. Analyze their posture and give brief feedback (1-2 sentences), specific and constructive. Point out one positive aspect and one small improvement. Vary your responses."
+      : language === "es"
+      ? "Eres un maestro de yoga dando feedback detallado. Analiza la postura del estudiante y ofrece sugerencias específicas para mejorar (3-4 oraciones). Sé técnico pero claro."
+      : "You are a yoga teacher giving detailed feedback. Analyze the student's posture and offer specific suggestions for improvement (3-4 sentences). Be technical but clear.";
 
     const messages = [
       {

@@ -3,13 +3,14 @@ const startBtn = document.getElementById("startBtn");
 const toggleDetectBtn = document.getElementById("toggleDetectBtn");
 const poseResult = document.getElementById("poseResult");
 const feedbackContainer = document.getElementById("feedbackContainer");
+const languageToggle = document.getElementById("languageToggle");
 
 let pose;
 let camera;
 let canvas;
 let ctx;
-let stream = null; // Para mantener referencia al stream de la cámara
-let isDetectionActive = false; // Estado de la detección
+let stream = null;
+let isDetectionActive = false;
 
 // Variables globales de pose para el feedback
 let headY = null;
@@ -23,8 +24,49 @@ let currentUtterance = null;
 
 // Variables para control de frecuencia de feedback
 let lastAutoFeedbackTime = 0;
-const MIN_FEEDBACK_INTERVAL = 5000; // 5 segundos entre feedbacks automáticos
+const MIN_FEEDBACK_INTERVAL = 5000;
 let isGeneratingFeedback = false;
+
+// Configuración de idioma
+let currentLanguage = "es"; // 'es' o 'en'
+const languageStrings = {
+  es: {
+    welcome:
+      "Bienvenido al Maestro de Yoga Virtual. Mantén la pose mientras analizo tu postura en tiempo real.",
+    startCamera: "Iniciar Cámara",
+    restartCamera: "Reiniciar Cámara",
+    startDetection: "Iniciar Detección",
+    stopDetection: "Detener Detección",
+    detecting: "Detectando pose...",
+    noBody: "❌ No se detecta el cuerpo",
+    poseDetected: "✅ Pose detectada: Brazos Arriba",
+    notBothArms: "❌ No estás levantando ambos brazos",
+    stopped: "Detección detenida",
+    analyzing: "🧘‍♂️ ANALIZANDO",
+    thinking: "Observando tu pose...",
+    master: "🧘‍♂️ MAESTRO",
+    errorFeedback: "Error al conectar con el maestro de yoga.",
+    languageBtn: "English",
+  },
+  en: {
+    welcome:
+      "Welcome to the Virtual Yoga Master. Hold the pose while I analyze your posture in real time.",
+    startCamera: "Start Camera",
+    restartCamera: "Restart Camera",
+    startDetection: "Start Detection",
+    stopDetection: "Stop Detection",
+    detecting: "Detecting pose...",
+    noBody: "❌ Body not detected",
+    poseDetected: "✅ Pose detected: Arms Up",
+    notBothArms: "❌ You are not raising both arms",
+    stopped: "Detection stopped",
+    analyzing: "🧘‍♂️ ANALYZING",
+    thinking: "Observing your pose...",
+    master: "🧘‍♂️ MASTER",
+    errorFeedback: "Error connecting to yoga master.",
+    languageBtn: "Español",
+  },
+};
 
 // Crear canvas para capturas
 function setupCanvas() {
@@ -33,6 +75,59 @@ function setupCanvas() {
   canvas.height = video.videoHeight;
   ctx = canvas.getContext("2d");
 }
+
+// Función para cambiar idioma
+function setLanguage(lang) {
+  currentLanguage = lang;
+  const strings = languageStrings[lang];
+
+  // Actualizar textos estáticos
+  languageToggle.textContent = strings.languageBtn;
+  document.querySelector("h1").textContent =
+    lang === "es" ? "🧘 Maestro de Yoga Virtual" : "🧘 Virtual Yoga Master";
+
+  // Actualizar botones
+  startBtn.textContent = strings.startCamera;
+  toggleDetectBtn.textContent = isDetectionActive
+    ? strings.stopDetection
+    : strings.startDetection;
+  poseResult.textContent = isDetectionActive
+    ? strings.detecting
+    : strings.stopped;
+
+  // Actualizar mensajes en el contenedor de feedback
+  updateFeedbackContainerLanguage();
+}
+
+// Actualizar textos en el contenedor de feedback
+function updateFeedbackContainerLanguage() {
+  const messages = feedbackContainer.querySelectorAll(".feedback-message");
+  messages.forEach((msg) => {
+    const content = msg.querySelector(".message-content");
+    if (content) {
+      const autoIndicator = msg.querySelector(".auto-indicator");
+      if (autoIndicator) {
+        autoIndicator.textContent = languageStrings[currentLanguage].master;
+      }
+
+      // Actualizar mensajes específicos
+      if (
+        content.textContent.includes("Bienvenido") ||
+        content.textContent.includes("Welcome")
+      ) {
+        content.textContent = languageStrings[currentLanguage].welcome;
+      } else if (content.textContent.includes("Error")) {
+        content.textContent = languageStrings[currentLanguage].errorFeedback;
+      }
+    }
+  });
+}
+
+// Evento para cambio de idioma
+languageToggle.addEventListener("click", () => {
+  const newLang = currentLanguage === "es" ? "en" : "es";
+  setLanguage(newLang);
+});
 
 startBtn.addEventListener("click", async () => {
   try {
@@ -56,16 +151,21 @@ startBtn.addEventListener("click", async () => {
     });
 
     video.srcObject = stream;
-    startBtn.textContent = "Reiniciar Cámara";
+    startBtn.textContent = languageStrings[currentLanguage].restartCamera;
 
     // Configurar canvas cuando el video esté listo
     video.onloadedmetadata = () => {
       setupCanvas();
       toggleDetectBtn.disabled = false;
-      toggleDetectBtn.textContent = "Iniciar Detección";
+      toggleDetectBtn.textContent =
+        languageStrings[currentLanguage].startDetection;
     };
   } catch (err) {
-    alert("No se pudo acceder a la cámara: " + err.message);
+    alert(
+      currentLanguage === "es"
+        ? "No se pudo acceder a la cámara: " + err.message
+        : "Could not access camera: " + err.message
+    );
   }
 });
 
@@ -75,8 +175,9 @@ function stopDetection() {
     camera.stop();
   }
   isDetectionActive = false;
-  toggleDetectBtn.textContent = "Iniciar Detección";
-  poseResult.textContent = "Detección detenida";
+  toggleDetectBtn.textContent = languageStrings[currentLanguage].startDetection;
+  poseResult.textContent = languageStrings[currentLanguage].stopped;
+  toggleDetectBtn.classList.remove("active");
 }
 
 // Modificar evento de detección (toggle)
@@ -85,22 +186,21 @@ toggleDetectBtn.addEventListener("click", () => {
     // Iniciar detección
     setupPose();
     isDetectionActive = true;
-    toggleDetectBtn.textContent = "Detener Detección";
-    poseResult.textContent = "Detectando pose...";
+    toggleDetectBtn.textContent =
+      languageStrings[currentLanguage].stopDetection;
+    poseResult.textContent = languageStrings[currentLanguage].detecting;
     toggleDetectBtn.classList.add("active");
   } else {
     // Detener detección
     stopDetection();
-    toggleDetectBtn.classList.remove("active");
   }
 });
 
 function onResults(results) {
-  if (!isDetectionActive) return; // No procesar si la detección está desactivada
+  if (!isDetectionActive) return;
 
   if (!results.poseLandmarks) {
-    poseResult.textContent = "❌ No se detecta el cuerpo";
-    // Resetear valores
+    poseResult.textContent = languageStrings[currentLanguage].noBody;
     headY = leftHandY = rightHandY = null;
     return;
   }
@@ -112,19 +212,19 @@ function onResults(results) {
 
   // Condición: brazos arriba (manos por encima de la cabeza)
   if (leftHandY < headY && rightHandY < headY) {
-    poseResult.textContent = "✅ Pose detectada: Brazos Arriba";
+    poseResult.textContent = languageStrings[currentLanguage].poseDetected;
 
     const now = Date.now();
     if (
       !isGeneratingFeedback &&
       now - lastAutoFeedbackTime > MIN_FEEDBACK_INTERVAL &&
-      !isSpeaking // <-- Añadir esta condición
+      !isSpeaking
     ) {
       captureAndSendFeedback();
       lastAutoFeedbackTime = now;
     }
   } else {
-    poseResult.textContent = "❌ No estás levantando ambos brazos";
+    poseResult.textContent = languageStrings[currentLanguage].notBothArms;
   }
 }
 
@@ -140,7 +240,9 @@ function captureAndSendFeedback(isManual = false) {
 
   // Crear descripción básica de la pose
   const poseDescription =
-    "El usuario está manteniendo una pose de brazos arriba. ";
+    currentLanguage === "es"
+      ? "El usuario está manteniendo una pose de brazos arriba."
+      : "The user is maintaining an arms-up yoga pose.";
 
   // Enviar para feedback
   requestFeedback(poseDescription, imageData, !isManual);
@@ -160,6 +262,7 @@ async function requestFeedback(poseDescription, imageData, isAuto = false) {
       poseDescription,
       imageData,
       isAuto,
+      language: currentLanguage, // Enviar idioma actual al backend
     };
 
     const res = await fetch("/api/feedback", {
@@ -177,7 +280,7 @@ async function requestFeedback(poseDescription, imageData, isAuto = false) {
     console.error("❌ Error al obtener feedback:", err.message);
     replaceLoadingMessage(
       loadingMessage,
-      "Error al conectar con el maestro de yoga.",
+      languageStrings[currentLanguage].errorFeedback,
       false
     );
   } finally {
@@ -187,6 +290,7 @@ async function requestFeedback(poseDescription, imageData, isAuto = false) {
 
 function showLoadingMessage(isAuto) {
   const loadingId = "loading-" + Date.now();
+  const strings = languageStrings[currentLanguage];
 
   const messageDiv = document.createElement("div");
   messageDiv.id = loadingId;
@@ -194,9 +298,9 @@ function showLoadingMessage(isAuto) {
 
   if (isAuto) {
     messageDiv.innerHTML = `
-      <div class="auto-indicator">🧘‍♂️ ANALIZANDO</div>
+      <div class="auto-indicator">${strings.analyzing}</div>
       <div class="message-content">
-        <div class="thinking-indicator">Observando tu pose...</div>
+        <div class="thinking-indicator">${strings.thinking}</div>
         <div class="spinner"></div>
       </div>
     `;
@@ -204,7 +308,7 @@ function showLoadingMessage(isAuto) {
   } else {
     messageDiv.innerHTML = `
       <div class="message-content">
-        <div class="thinking-indicator">Analizando tu postura...</div>
+        <div class="thinking-indicator">${strings.thinking}</div>
         <div class="spinner"></div>
       </div>
     `;
@@ -229,7 +333,7 @@ function replaceLoadingMessage(loadingId, message, isAuto) {
   messageDiv.className = "feedback-message";
 
   if (isAuto) {
-    messageDiv.innerHTML = `<div class="auto-indicator">🧘‍♂️ MAESTRO</div><div class="message-content">${message}</div>`;
+    messageDiv.innerHTML = `<div class="auto-indicator">${languageStrings[currentLanguage].master}</div><div class="message-content">${message}</div>`;
     messageDiv.style.borderLeft = "4px solid #4CAF50";
     speakText(message);
   } else {
@@ -255,7 +359,12 @@ async function setupPose() {
     try {
       await pose.close();
     } catch (e) {
-      console.warn("Error cerrando instancia anterior de Pose:", e);
+      console.warn(
+        currentLanguage === "es"
+          ? "Error cerrando instancia anterior de Pose:"
+          : "Error closing previous Pose instance:",
+        e
+      );
     }
   }
 
@@ -266,7 +375,7 @@ async function setupPose() {
   });
 
   pose.setOptions({
-    modelComplexity: 1, // Aumentamos a medio para mejor precisión
+    modelComplexity: 1,
     smoothLandmarks: true,
     enableSegmentation: false,
     minDetectionConfidence: 0.5,
@@ -287,7 +396,12 @@ async function setupPose() {
         try {
           await pose.send({ image: video });
         } catch (err) {
-          console.error("Error en detección de pose:", err);
+          console.error(
+            currentLanguage === "es"
+              ? "Error en detección de pose:"
+              : "Error in pose detection:",
+            err
+          );
         }
       }
     },
@@ -304,7 +418,7 @@ function addFeedbackToHistory(message, isAuto) {
   messageDiv.className = "feedback-message";
 
   if (isAuto) {
-    messageDiv.innerHTML = `<div class="auto-indicator">🧘‍♂️ MAESTRO</div><div class="message-content">${message}</div>`;
+    messageDiv.innerHTML = `<div class="auto-indicator">${languageStrings[currentLanguage].master}</div><div class="message-content">${message}</div>`;
     messageDiv.style.borderLeft = "4px solid #4CAF50";
   } else {
     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
@@ -315,10 +429,7 @@ function addFeedbackToHistory(message, isAuto) {
 }
 
 // Mensaje inicial
-addFeedbackToHistory(
-  "Bienvenido al Maestro de Yoga Virtual. Mantén la pose mientras analizo tu postura en tiempo real.",
-  false
-);
+addFeedbackToHistory(languageStrings[currentLanguage].welcome, false);
 
 function speakText(text) {
   if (!text) return;
@@ -339,15 +450,18 @@ function processSpeechQueue() {
   const text = speechQueue.shift();
 
   currentUtterance = new SpeechSynthesisUtterance(text);
-  currentUtterance.lang = "es-MX";
+  currentUtterance.lang = currentLanguage === "es" ? "es-MX" : "en-US";
   currentUtterance.rate = 0.9;
   currentUtterance.pitch = 1;
   currentUtterance.volume = 1;
 
   currentUtterance.onend = () => {
     isSpeaking = false;
-    setTimeout(processSpeechQueue, 500); // Pequeña pausa entre mensajes
+    setTimeout(processSpeechQueue, 500);
   };
 
   speechSynthesis.speak(currentUtterance);
 }
+
+// Inicializar idioma
+setLanguage("es");

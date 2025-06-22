@@ -161,3 +161,25 @@ button,
     transform: rotate(360deg);
   }
 }
+
+/* Nuevos estilos para el toggle de idioma */
+.language-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.language-toggle button {
+  padding: 8px 15px;
+  background: #5d6d7e;
+  border: none;
+  border-radius: 20px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.language-toggle button:hover {
+  background: #34495e;
+}
