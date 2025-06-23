@@ -946,6 +946,7 @@ async function requestFeedback(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Origin: "https://yoga-mvp.vercel.app",
         // Agrega este header para CORS simple
         "Sec-Fetch-Mode": "cors",
       },
