@@ -940,7 +940,9 @@ async function requestFeedback(
       currentScore: lastScore, // Incluir puntuación actual
     };
 
-    const res = await fetch("/api/feedback", {
+    const proxyUrl = import.meta.env.VITE_PROXY_URL || "/api/feedback";
+
+    const res = await fetch(proxyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

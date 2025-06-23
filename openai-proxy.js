@@ -10,7 +10,7 @@ const app = express();
 // Habilita CORS para todas las rutas
 app.use(
   cors({
-    origin: "*", // Temporal para pruebas
+    origin: ["https://yoga-mvp.vercel.app", "http://localhost:5500"], // Temporal para pruebas
     methods: ["POST"],
   })
 );
