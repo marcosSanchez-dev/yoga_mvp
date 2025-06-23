@@ -10,9 +10,8 @@ const app = express();
 // Habilita CORS para todas las rutas
 app.use(
   cors({
-    origin: ["http://127.0.0.1:5500", "http://localhost:5500"],
+    origin: "*", // Temporal para pruebas
     methods: ["POST"],
-    allowedHeaders: ["Content-Type"],
   })
 );
 
