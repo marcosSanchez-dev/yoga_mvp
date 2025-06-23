@@ -19,17 +19,17 @@ let referenceLandmarks = null;
 const REFERENCE_POSE = "armsUp";
 
 // Landmarks de respaldo en caso de que el análisis de la imagen falle
-const FALLBACK_LANDMARKS = {
-  0: { x: 0.5, y: 0.12, visibility: 1 }, // cabeza
-  11: { x: 0.35, y: 0.28, visibility: 1 }, // hombro izquierdo
-  12: { x: 0.65, y: 0.28, visibility: 1 }, // hombro derecho
-  13: { x: 0.35, y: 0.15, visibility: 1 }, // codo izquierdo
-  14: { x: 0.65, y: 0.15, visibility: 1 }, // codo derecho
-  15: { x: 0.35, y: 0.05, visibility: 1 }, // muñeca izquierda
-  16: { x: 0.65, y: 0.05, visibility: 1 }, // muñeca derecha
-  23: { x: 0.35, y: 0.55, visibility: 1 }, // cadera izquierda
-  24: { x: 0.65, y: 0.55, visibility: 1 }, // cadera derecha
-};
+const FALLBACK_LANDMARKS = new Array(33); // Crear array de 33 elementos
+FALLBACK_LANDMARKS[0] = { x: 0.5, y: 0.15, visibility: 1 }; // cabeza
+FALLBACK_LANDMARKS[11] = { x: 0.35, y: 0.3, visibility: 1 }; // hombro izquierdo
+FALLBACK_LANDMARKS[12] = { x: 0.65, y: 0.3, visibility: 1 }; // hombro derecho
+FALLBACK_LANDMARKS[13] = { x: 0.3, y: 0.15, visibility: 1 }; // codo izquierdo
+FALLBACK_LANDMARKS[14] = { x: 0.7, y: 0.15, visibility: 1 }; // codo derecho
+FALLBACK_LANDMARKS[15] = { x: 0.25, y: 0.05, visibility: 1 }; // muñeca izquierda
+FALLBACK_LANDMARKS[16] = { x: 0.75, y: 0.05, visibility: 1 }; // muñeca derecha
+FALLBACK_LANDMARKS[23] = { x: 0.4, y: 0.6, visibility: 1 }; // cadera izquierda
+FALLBACK_LANDMARKS[24] = { x: 0.6, y: 0.6, visibility: 1 }; // cadera derecha
+
 // Variables globales de pose para el feedback
 let headY = null;
 let leftHandY = null;
@@ -360,32 +360,37 @@ function drawReferenceLandmarks() {
     [28, 32],
   ];
 
-  // Dibujar conexiones
+  // Dibujar conexiones - SÓLO SI EXISTEN AMBOS PUNTOS
   for (const [start, end] of connections) {
-    refCtx.beginPath();
-    refCtx.moveTo(
-      referenceLandmarks[start].x * refCanvas.width,
-      referenceLandmarks[start].y * refCanvas.height
-    );
-    refCtx.lineTo(
-      referenceLandmarks[end].x * refCanvas.width,
-      referenceLandmarks[end].y * refCanvas.height
-    );
-    refCtx.stroke();
+    if (referenceLandmarks[start] && referenceLandmarks[end]) {
+      refCtx.beginPath();
+      refCtx.moveTo(
+        referenceLandmarks[start].x * refCanvas.width,
+        referenceLandmarks[start].y * refCanvas.height
+      );
+      refCtx.lineTo(
+        referenceLandmarks[end].x * refCanvas.width,
+        referenceLandmarks[end].y * refCanvas.height
+      );
+      refCtx.stroke();
+    }
   }
 
-  // Dibujar puntos
+  // Dibujar puntos - SÓLO SI EXISTEN
   refCtx.fillStyle = "#FF0000";
-  for (const landmark of referenceLandmarks) {
-    refCtx.beginPath();
-    refCtx.arc(
-      landmark.x * refCanvas.width,
-      landmark.y * refCanvas.height,
-      4,
-      0,
-      2 * Math.PI
-    );
-    refCtx.fill();
+  for (let i = 0; i < referenceLandmarks.length; i++) {
+    const landmark = referenceLandmarks[i];
+    if (landmark) {
+      refCtx.beginPath();
+      refCtx.arc(
+        landmark.x * refCanvas.width,
+        landmark.y * refCanvas.height,
+        4,
+        0,
+        2 * Math.PI
+      );
+      refCtx.fill();
+    }
   }
 
   // Actualizar la imagen con los landmarks dibujados
@@ -419,8 +424,9 @@ function updateReferenceValues() {
 
   // Llenar con los valores
   Object.entries(keyPoints).forEach(([index, label]) => {
-    const point = referenceLandmarks[parseInt(index)];
-    if (point) {
+    const pointIndex = parseInt(index);
+    if (referenceLandmarks[pointIndex]) {
+      const point = referenceLandmarks[pointIndex];
       const row = document.createElement("div");
       row.className = "value-row";
       row.innerHTML = `
@@ -647,35 +653,35 @@ function onResults(results) {
     if (similarityData) {
       updateSimilarityUI(similarityData.similarity);
 
-      // Actualizar puntuación del usuario
-      const rawScore = similarityData.similarity * 5;
+      // Aumentar multiplicador para puntuaciones más altas
+      const rawScore = similarityData.similarity * 7; // Más generoso (antes era 5)
 
-      // Suavizar con promedio móvil
+      // Suavizar con promedio móvil usando pesos (más peso a los últimos valores)
       scoreHistory.push(rawScore);
       if (scoreHistory.length > SCORE_HISTORY_LENGTH) {
         scoreHistory.shift();
       }
 
-      const avgScore =
-        scoreHistory.reduce((a, b) => a + b, 0) / scoreHistory.length;
-      const finalScore = Math.min(5, parseFloat(avgScore.toFixed(1)));
+      // Promedio ponderado (los últimos valores pesan más)
+      const weights = [0.6, 0.7, 0.8, 1.0, 1.2]; // Más peso a valores recientes
+      const weightedSum = scoreHistory.reduce((sum, score, index) => {
+        const weight = weights[index] || 1.0;
+        return sum + score * weight;
+      }, 0);
 
-      debugLog(
-        "Puntuación en bruto:",
-        rawScore,
-        "Promedio:",
-        avgScore,
-        "Puntuación final:",
-        finalScore
-      );
+      const weightSum = weights
+        .slice(0, scoreHistory.length)
+        .reduce((a, b) => a + b, 0);
+      const weightedAvg = weightedSum / weightSum;
 
-      // Actualizar UI solo si hay cambio significativo
+      // Limitar a 5 pero permitiendo valores más altos temporalmente
+      const finalScore = Math.min(5, parseFloat(weightedAvg.toFixed(1)));
+
+      // Solo actualizar UI si hay cambio significativo
       if (Math.abs(finalScore - lastScore) >= 0.05) {
         debugLog("Actualizando puntuación a:", finalScore);
         updateUserScore(finalScore);
         lastScore = finalScore;
-
-        // Resaltar puntos problemáticos
         highlightProblemAreas(similarityData.pointErrors);
       }
     }
@@ -709,7 +715,7 @@ function onResults(results) {
   }
 }
 
-// Calcular similitud con pose de referencia
+// Calcular similitud con pose de referencia (menos estricto)
 function calculatePoseSimilarity(userLandmarks) {
   if (!userLandmarks) {
     debugLog(SIM_DEBUG_PREFIX, "Landmarks de usuario no definidos");
@@ -721,75 +727,90 @@ function calculatePoseSimilarity(userLandmarks) {
   // Usar referencia o fallback si no hay landmarks
   const ref = referenceLandmarks || FALLBACK_LANDMARKS;
 
-  // Puntos clave para la pose de brazos arriba (solo partes superiores)
-  const keyPoints = [11, 12, 13, 14, 15, 16]; // Hombros, codos, muñecas
+  // Puntos clave para la pose de brazos arriba (incluyendo más puntos)
+  const keyPoints = [0, 11, 12, 13, 14, 15, 16, 23, 24]; // Añadimos cabeza y caderas
 
   let totalError = 0;
   const pointErrors = {};
   let validPoints = 0;
 
-  // Calcular el centro de los hombros para normalizar
-  const userShoulderCenter = {
-    x: (userLandmarks[11].x + userLandmarks[12].x) / 2,
-    y: (userLandmarks[11].y + userLandmarks[12].y) / 2,
+  // Calcular el centro del cuerpo para normalizar
+  const userBodyCenter = {
+    x:
+      (userLandmarks[11].x +
+        userLandmarks[12].x +
+        userLandmarks[23].x +
+        userLandmarks[24].x) /
+      4,
+    y:
+      (userLandmarks[11].y +
+        userLandmarks[12].y +
+        userLandmarks[23].y +
+        userLandmarks[24].y) /
+      4,
   };
 
-  const refShoulderCenter = {
-    x: (ref[11].x + ref[12].x) / 2,
-    y: (ref[11].y + ref[12].y) / 2,
+  const refBodyCenter = {
+    x: (ref[11].x + ref[12].x + ref[23].x + ref[24].x) / 4,
+    y: (ref[11].y + ref[12].y + ref[23].y + ref[24].y) / 4,
   };
-
-  debugLog("Centro de hombros (usuario):", userShoulderCenter);
-  debugLog("Centro de hombros (referencia):", refShoulderCenter);
 
   for (const i of keyPoints) {
-    // Solo considerar puntos visibles
-    if (userLandmarks[i].visibility > 0.5 && ref[i]) {
-      // Calcular posición relativa al centro de hombros
-      const userRelX = userLandmarks[i].x - userShoulderCenter.x;
-      const userRelY = userLandmarks[i].y - userShoulderCenter.y;
+    if (userLandmarks[i] && userLandmarks[i].visibility > 0.3 && ref[i]) {
+      // Umbral de visibilidad más bajo
+      // Calcular posición relativa al centro del cuerpo
+      const userRelX = userLandmarks[i].x - userBodyCenter.x;
+      const userRelY = userLandmarks[i].y - userBodyCenter.y;
 
-      const refRelX = ref[i].x - refShoulderCenter.x;
-      const refRelY = ref[i].y - refShoulderCenter.y;
+      const refRelX = ref[i].x - refBodyCenter.x;
+      const refRelY = ref[i].y - refBodyCenter.y;
 
-      // Calcular diferencia entre posiciones relativas
+      // Calcular diferencia con tolerancia
       const dx = userRelX - refRelX;
       const dy = userRelY - refRelY;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      debugLog(`Punto ${i}: distancia=${distance}`);
+      // Aplicar pesos diferentes según la importancia del punto
+      let weight = 1.0;
+      if ([0, 15, 16].includes(i)) weight = 1.5; // Cabeza y manos más importantes
+      if ([23, 24].includes(i)) weight = 0.7; // Caderas menos importantes
 
-      pointErrors[i] = distance;
-      totalError += distance;
+      pointErrors[i] = distance * weight;
+      totalError += pointErrors[i];
       validPoints++;
-    } else {
-      debugLog(
-        `Punto ${i} no visible. Visibilidad: ${userLandmarks[i].visibility}`
-      );
     }
   }
 
-  debugLog("Total de puntos válidos:", validPoints, "Error total:", totalError);
-
   // Si no hay suficientes puntos válidos, retornar similitud 0
-  if (validPoints < 3) {
-    debugLog(SIM_DEBUG_PREFIX, "Puntos válidos insuficientes (<3)");
+  if (validPoints < 5) {
+    debugLog(SIM_DEBUG_PREFIX, "Puntos válidos insuficientes (<5)");
     return { similarity: 0, pointErrors };
   }
 
   // Normalizar error (0-1) y convertirlo a similitud
   const avgError = totalError / validPoints;
-  const maxError = 0.5; // Valor empírico ajustado
+  const maxError = 0.6; // Aumentamos el error máximo permitido (era 0.3)
+
+  // Función de suavizado para hacer la similitud más generosa
   const similarity = Math.max(0, 1 - avgError / maxError);
 
-  debugLog("Error promedio:", avgError, "Similitud:", similarity);
+  // Aplicar curva de suavizado adicional
+  const adjustedSimilarity = Math.pow(similarity, 0.7); // Hacemos la curva menos estricta
+
+  debugLog(
+    "Error promedio:",
+    avgError,
+    "Similitud base:",
+    similarity,
+    "Similitud ajustada:",
+    adjustedSimilarity
+  );
 
   return {
-    similarity,
+    similarity: adjustedSimilarity,
     pointErrors,
   };
 }
-
 // Actualizar UI de similitud
 function updateSimilarityUI(similarity) {
   const similarityBar = document.getElementById("similarityBar");
