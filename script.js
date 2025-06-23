@@ -636,59 +636,56 @@ function onResults(results) {
   debugLog("Posición mano izquierda Y:", leftHandY);
   debugLog("Posición mano derecha Y:", rightHandY);
 
-  // Solo procesar si los brazos están arriba
-  const areArmsUp = leftHandY < headY && rightHandY < headY;
-
-  debugLog("Brazos arriba:", areArmsUp);
-
-  let similarityData = null;
-
   // Usar referencia o fallback si no hay landmarks
   const refLandmarks = referenceLandmarks || FALLBACK_LANDMARKS;
 
-  if (areArmsUp) {
-    similarityData = calculatePoseSimilarity(results.poseLandmarks);
-    debugLog("Datos de similitud:", similarityData);
+  // Calcular similitud en TODO momento (incluso cuando los brazos no están arriba)
+  const similarityData = calculatePoseSimilarity(results.poseLandmarks);
+  debugLog("Datos de similitud:", similarityData);
 
-    if (similarityData) {
-      updateSimilarityUI(similarityData.similarity);
+  if (similarityData) {
+    updateSimilarityUI(similarityData.similarity);
 
-      // Aumentar multiplicador para puntuaciones más altas
-      const rawScore = similarityData.similarity * 7; // Más generoso (antes era 5)
+    // Aumentar multiplicador para puntuaciones más altas
+    const rawScore = similarityData.similarity * 7; // Más generoso (antes era 5)
 
-      // Suavizar con promedio móvil usando pesos (más peso a los últimos valores)
-      scoreHistory.push(rawScore);
-      if (scoreHistory.length > SCORE_HISTORY_LENGTH) {
-        scoreHistory.shift();
-      }
+    // Suavizar con promedio móvil usando pesos (más peso a los últimos valores)
+    scoreHistory.push(rawScore);
+    if (scoreHistory.length > SCORE_HISTORY_LENGTH) {
+      scoreHistory.shift();
+    }
 
-      // Promedio ponderado (los últimos valores pesan más)
-      const weights = [0.6, 0.7, 0.8, 1.0, 1.2]; // Más peso a valores recientes
-      const weightedSum = scoreHistory.reduce((sum, score, index) => {
-        const weight = weights[index] || 1.0;
-        return sum + score * weight;
-      }, 0);
+    // Promedio ponderado (los últimos valores pesan más)
+    const weights = [0.6, 0.7, 0.8, 1.0, 1.2]; // Más peso a valores recientes
+    const weightedSum = scoreHistory.reduce((sum, score, index) => {
+      const weight = weights[index] || 1.0;
+      return sum + score * weight;
+    }, 0);
 
-      const weightSum = weights
-        .slice(0, scoreHistory.length)
-        .reduce((a, b) => a + b, 0);
-      const weightedAvg = weightedSum / weightSum;
+    const weightSum = weights
+      .slice(0, scoreHistory.length)
+      .reduce((a, b) => a + b, 0);
+    const weightedAvg = weightedSum / weightSum;
 
-      // Limitar a 5 pero permitiendo valores más altos temporalmente
-      const finalScore = Math.min(5, parseFloat(weightedAvg.toFixed(1)));
+    // Limitar a 5 pero permitiendo valores más altos temporalmente
+    const finalScore = Math.min(5, parseFloat(weightedAvg.toFixed(1)));
 
-      // Solo actualizar UI si hay cambio significativo
-      if (Math.abs(finalScore - lastScore) >= 0.05) {
-        debugLog("Actualizando puntuación a:", finalScore);
-        updateUserScore(finalScore);
-        lastScore = finalScore;
-        highlightProblemAreas(similarityData.pointErrors);
-      }
+    // Solo actualizar UI si hay cambio significativo
+    if (Math.abs(finalScore - lastScore) >= 0.05) {
+      debugLog("Actualizando puntuación a:", finalScore);
+      updateUserScore(finalScore);
+      lastScore = finalScore;
+      highlightProblemAreas(similarityData.pointErrors);
     }
   }
 
   // Actualizar valores del usuario
   updateUserValues(results.poseLandmarks);
+
+  // Solo procesar si los brazos están arriba
+  const areArmsUp = leftHandY < headY && rightHandY < headY;
+
+  debugLog("Brazos arriba:", areArmsUp);
 
   if (areArmsUp) {
     let resultText = languageStrings[currentLanguage].poseDetected;
@@ -712,6 +709,13 @@ function onResults(results) {
     }
   } else {
     poseResult.textContent = languageStrings[currentLanguage].notBothArms;
+
+    // Mostrar similitud incluso cuando los brazos no están arriba
+    if (similarityData !== null) {
+      poseResult.textContent += ` - ${
+        languageStrings[currentLanguage].similarity
+      }: ${(similarityData.similarity * 100).toFixed(1)}%`;
+    }
   }
 }
 
