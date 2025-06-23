@@ -10,15 +10,29 @@ const app = express();
 // Habilita CORS para todas las rutas
 app.use(
   cors({
-    origin: ["https://yoga-mvp.vercel.app", "http://localhost:5500"], // Temporal para pruebas
-    methods: ["POST"],
+    origin: "*", // Permite todos los orígenes temporalmente
+    methods: ["POST", "OPTIONS"], // Añade OPTIONS
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
 app.use(express.json());
 
+app.options("/feedback", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.status(200).send();
+});
+
 app.post("/feedback", async (req, res) => {
   try {
+    // Configura encabezados CORS aquí
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
     const {
       poseDescription,
       imageData,
