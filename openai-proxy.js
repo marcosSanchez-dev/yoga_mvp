@@ -10,25 +10,23 @@ const app = express();
 // Habilita CORS para todas las rutas
 const corsOptions = {
   origin: "*",
-  methods: ["POST", "OPTIONS"],
+  methods: "POST",
   allowedHeaders: ["Content-Type"],
   credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
+  optionsSuccessStatus: 200,
 };
 
 app.use(cors(corsOptions));
-app.options("/feedback", cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 app.use(express.json());
 
 app.post("/feedback", async (req, res) => {
+  // Configura encabezados CORS aquí
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   try {
-    // Configura encabezados CORS aquí
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
     const {
       poseDescription,
       imageData,

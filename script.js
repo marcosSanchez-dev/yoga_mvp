@@ -940,10 +940,7 @@ async function requestFeedback(
       currentScore: lastScore, // Incluir puntuación actual
     };
 
-    const proxyUrl =
-      window.location.hostname === "localhost"
-        ? "http://localhost:3001/feedback"
-        : "https://yoga-mvp-proxy.onrender.com/feedback";
+    const proxyUrl = "https://yoga-mvp-proxy.onrender.com/feedback";
 
     const res = await fetch(proxyUrl, {
       method: "POST",
