@@ -940,7 +940,7 @@ async function requestFeedback(
       currentScore: lastScore, // Incluir puntuación actual
     };
 
-    const proxyUrl = "https://yoga-mvp-proxy.onrender.com/feedback";
+    const proxyUrl = "https://yoga-mvp.onrender.com/feedback";
 
     const res = await fetch(proxyUrl, {
       method: "POST",
