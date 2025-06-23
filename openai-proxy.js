@@ -6,6 +6,7 @@ import cors from "cors";
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3001;
 
 // Habilita CORS para todas las rutas
 const corsOptions = {
@@ -13,11 +14,11 @@ const corsOptions = {
   methods: "POST",
   allowedHeaders: ["Content-Type"],
   credentials: true,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 204,
 };
 
-app.options("/feedback", cors(corsOptions));
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 app.use(express.json());
 
@@ -151,7 +152,6 @@ app.post("/feedback", async (req, res) => {
   }
 });
 
-const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`✅ Proxy corriendo en http://localhost:${PORT}`);
 });
