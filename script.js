@@ -1115,7 +1115,13 @@ function addFeedbackToHistory(message, isAuto) {
 addFeedbackToHistory(languageStrings[currentLanguage].welcome, false);
 
 function speakText(text) {
-  if (!text) return;
+  if (!text || !window.speechSynthesis) return;
+
+  // Verificar si el usuario ya interactuó
+  if (!window.userInteracted) {
+    console.warn("Audio bloqueado: esperando interacción del usuario");
+    return;
+  }
 
   // Agregar a la cola
   speechQueue.push(text);
@@ -1125,6 +1131,36 @@ function speakText(text) {
     processSpeechQueue();
   }
 }
+
+// Añade este evento al inicio de tu script
+document.addEventListener("click", () => {
+  if (!window.userInteracted) {
+    window.userInteracted = true;
+    console.log("Interacción del usuario registrada - audio desbloqueado");
+
+    // Intenta reproducir un sonido de prueba
+    const utterance = new SpeechSynthesisUtterance(" ");
+    speechSynthesis.speak(utterance);
+  }
+});
+
+document.getElementById("activateVoice")?.addEventListener("click", () => {
+  // Forzar la bandera de interacción
+  window.userInteracted = true;
+
+  // Probar con un mensaje corto
+  speakText(
+    currentLanguage === "es"
+      ? "Voz activada. Bienvenido al maestro de yoga virtual."
+      : "Voice activated. Welcome to the virtual yoga master."
+  );
+
+  alert(
+    currentLanguage === "es"
+      ? "Voz activada correctamente. Ahora podrás escuchar los feedbacks."
+      : "Voice successfully activated. You will now hear feedback."
+  );
+});
 
 function processSpeechQueue() {
   if (speechQueue.length === 0 || isSpeaking) return;
@@ -1137,6 +1173,17 @@ function processSpeechQueue() {
   currentUtterance.rate = 0.9;
   currentUtterance.pitch = 1;
   currentUtterance.volume = 1;
+
+  if (currentLanguage === "es") {
+    const spanishVoice = speechSynthesis
+      .getVoices()
+      .find(
+        (voice) => voice.lang.includes("es") && voice.name.includes("Natural")
+      );
+    if (spanishVoice) {
+      currentUtterance.voice = spanishVoice;
+    }
+  }
 
   currentUtterance.onend = () => {
     isSpeaking = false;
@@ -1215,3 +1262,14 @@ if (!window.POSE_CONNECTIONS) {
     [28, 32],
   ];
 }
+
+function logAvailableVoices() {
+  const voices = speechSynthesis.getVoices();
+  console.log("Voces disponibles:");
+  voices.forEach((voice) => {
+    console.log(`- ${voice.name} (${voice.lang})`);
+  });
+}
+
+// Ejecutar después de cargar las voces
+speechSynthesis.onvoiceschanged = logAvailableVoices;
