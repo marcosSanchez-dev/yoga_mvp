@@ -18,6 +18,18 @@ let isDetectionActive = false;
 let referenceLandmarks = null;
 const REFERENCE_POSE = "armsUp";
 
+// Landmarks de respaldo en caso de que el análisis de la imagen falle
+const FALLBACK_LANDMARKS = {
+  0: { x: 0.5, y: 0.12, visibility: 1 }, // cabeza
+  11: { x: 0.35, y: 0.28, visibility: 1 }, // hombro izquierdo
+  12: { x: 0.65, y: 0.28, visibility: 1 }, // hombro derecho
+  13: { x: 0.35, y: 0.15, visibility: 1 }, // codo izquierdo
+  14: { x: 0.65, y: 0.15, visibility: 1 }, // codo derecho
+  15: { x: 0.35, y: 0.05, visibility: 1 }, // muñeca izquierda
+  16: { x: 0.65, y: 0.05, visibility: 1 }, // muñeca derecha
+  23: { x: 0.35, y: 0.55, visibility: 1 }, // cadera izquierda
+  24: { x: 0.65, y: 0.55, visibility: 1 }, // cadera derecha
+};
 // Variables globales de pose para el feedback
 let headY = null;
 let leftHandY = null;
@@ -35,6 +47,25 @@ let isGeneratingFeedback = false;
 
 // Estado de visibilidad de referencia
 let isReferenceVisible = true;
+
+// Variables para sistema de puntuación
+let userScoreElement = null;
+let targetScoreElement = null;
+let lastScore = 0;
+const SCORE_HISTORY_LENGTH = 5;
+let scoreHistory = [];
+let scoreProblemPoints = [];
+
+// Modo depuración
+const DEBUG_MODE = true;
+const REF_DEBUG_PREFIX = "[REF]";
+const SIM_DEBUG_PREFIX = "[SIM]";
+
+function debugLog(...args) {
+  if (DEBUG_MODE) {
+    console.log("[DEBUG]", ...args);
+  }
+}
 
 // Configuración de idioma
 let currentLanguage = "es";
@@ -72,6 +103,8 @@ const languageStrings = {
     rightWrist: "Muñeca Der",
     leftHip: "Cadera Izq",
     rightHip: "Cadera Der",
+    yourScoreLabel: "Tu calificación",
+    targetScoreLabel: "Objetivo",
   },
   en: {
     welcome:
@@ -106,6 +139,8 @@ const languageStrings = {
     rightWrist: "Right Wrist",
     leftHip: "Left Hip",
     rightHip: "Right Hip",
+    yourScoreLabel: "Your Score",
+    targetScoreLabel: "Target",
   },
 };
 
@@ -115,12 +150,14 @@ function setupCanvas() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   ctx = canvas.getContext("2d");
+  debugLog("Canvas configurado:", canvas.width, "x", canvas.height);
 }
 
 // Función para cambiar idioma
 function setLanguage(lang) {
   currentLanguage = lang;
   const strings = languageStrings[lang];
+  debugLog("Cambiando idioma a:", lang);
 
   // Actualizar textos estáticos
   languageToggle.textContent = strings.languageBtn;
@@ -148,6 +185,14 @@ function setLanguage(lang) {
     similarityLabels[2].textContent = strings.yourScore;
   }
 
+  // Actualizar puntuaciones
+  if (userScoreElement) {
+    document.querySelector("#yourScoreLabel").textContent =
+      strings.yourScoreLabel;
+    document.querySelector("#targetScoreLabel").textContent =
+      strings.targetScoreLabel;
+  }
+
   // Actualizar imagen de referencia
   loadReferenceImage();
 
@@ -166,7 +211,7 @@ function loadReferenceImage() {
   poseReference.style.display = "none";
 
   const img = new Image();
-  img.onload = () => {
+  img.onload = async () => {
     poseReference.src = img.src;
     loadingMessage.style.display = "none";
     poseReference.style.display = "block";
@@ -176,7 +221,20 @@ function loadReferenceImage() {
       drawReferenceLandmarks();
     } else {
       // Analizar en segundo plano
-      setTimeout(analyzeReferenceImage, 100);
+      debugLog(
+        REF_DEBUG_PREFIX,
+        "Imagen de referencia cargada. Iniciando análisis..."
+      );
+      await analyzeReferenceImage();
+
+      // Reintentar después de 2 segundos si aún falla
+      setTimeout(() => {
+        if (!referenceLandmarks) {
+          console.warn("Usando fallback landmarks después de timeout");
+          referenceLandmarks = FALLBACK_LANDMARKS;
+          drawReferenceLandmarks();
+        }
+      }, 3000);
     }
   };
 
@@ -187,15 +245,22 @@ function loadReferenceImage() {
           ? "Error cargando referencia"
           : "Error loading reference";
     }
+    debugLog(REF_DEBUG_PREFIX, "Error al cargar la imagen de referencia");
   };
 
   img.src = `assets/pose_arms_up_${currentLanguage}.jpg`;
+  debugLog("Cargando imagen de referencia:", img.src);
 }
 
 // Analizar imagen de referencia para extraer landmarks
 async function analyzeReferenceImage() {
+  debugLog(REF_DEBUG_PREFIX, "Iniciando análisis de imagen de referencia...");
   const img = document.getElementById("poseReference");
-  if (!img || !img.complete || img.naturalWidth === 0) return;
+
+  if (!img || !img.complete || img.naturalWidth === 0) {
+    debugLog(REF_DEBUG_PREFIX, "Imagen no válida o no cargada");
+    return;
+  }
 
   const refCanvas = document.createElement("canvas");
   const refCtx = refCanvas.getContext("2d");
@@ -218,12 +283,22 @@ async function analyzeReferenceImage() {
     poseAnalyzer.onResults((results) => {
       if (results.poseLandmarks) {
         referenceLandmarks = results.poseLandmarks;
+        debugLog(
+          REF_DEBUG_PREFIX,
+          "Landmarks de referencia obtenidos:",
+          referenceLandmarks
+        );
         drawReferenceLandmarks();
-        updateReferenceValues(); // Actualizar valores de referencia
+        updateReferenceValues();
+      } else {
+        debugLog(
+          REF_DEBUG_PREFIX,
+          "No se detectaron landmarks en la imagen de referencia"
+        );
       }
     });
   } catch (e) {
-    console.error("Error analizando imagen de referencia:", e);
+    debugLog(REF_DEBUG_PREFIX, "Error analizando imagen de referencia:", e);
   }
 }
 
@@ -389,12 +464,18 @@ function updateUserValues(userLandmarks) {
     if (point) {
       const row = document.createElement("div");
       row.className = "value-row";
+      row.dataset.pointIndex = index; // Para resaltar puntos problemáticos
       row.innerHTML = `
         <span class="point-label">${label}:</span>
         <span>X: ${point.x.toFixed(2)}</span>
         <span>Y: ${point.y.toFixed(2)}</span>
       `;
       userValues.appendChild(row);
+
+      // Aplicar resaltado si este punto es problemático
+      if (scoreProblemPoints.includes(parseInt(index))) {
+        row.classList.add("highlight");
+      }
     }
   });
 }
@@ -495,6 +576,12 @@ function stopDetection() {
   toggleDetectBtn.textContent = languageStrings[currentLanguage].startDetection;
   poseResult.textContent = languageStrings[currentLanguage].stopped;
   toggleDetectBtn.classList.remove("active");
+
+  // Resetear puntuación
+  updateUserScore(0);
+  scoreHistory = [];
+  scoreProblemPoints = [];
+  debugLog("Detección detenida. Puntuación reiniciada");
 }
 
 // Modificar evento de detección (toggle)
@@ -507,6 +594,7 @@ toggleDetectBtn.addEventListener("click", () => {
       languageStrings[currentLanguage].stopDetection;
     poseResult.textContent = languageStrings[currentLanguage].detecting;
     toggleDetectBtn.classList.add("active");
+    debugLog("Detección iniciada");
 
     // Mostrar referencia si estaba oculta al iniciar detección
     if (!isReferenceVisible) {
@@ -527,6 +615,7 @@ function onResults(results) {
   if (!isDetectionActive) return;
 
   if (!results.poseLandmarks) {
+    debugLog("No se detectan landmarks en el cuerpo");
     poseResult.textContent = languageStrings[currentLanguage].noBody;
     headY = leftHandY = rightHandY = null;
     return;
@@ -537,23 +626,70 @@ function onResults(results) {
   leftHandY = results.poseLandmarks[15].y;
   rightHandY = results.poseLandmarks[16].y;
 
-  // Calcular similitud si tenemos referencia
-  let similarityScore = null;
-  if (referenceLandmarks) {
-    similarityScore = calculatePoseSimilarity(results.poseLandmarks);
-    updateSimilarityUI(similarityScore);
+  debugLog("Posición cabeza Y:", headY);
+  debugLog("Posición mano izquierda Y:", leftHandY);
+  debugLog("Posición mano derecha Y:", rightHandY);
+
+  // Solo procesar si los brazos están arriba
+  const areArmsUp = leftHandY < headY && rightHandY < headY;
+
+  debugLog("Brazos arriba:", areArmsUp);
+
+  let similarityData = null;
+
+  // Usar referencia o fallback si no hay landmarks
+  const refLandmarks = referenceLandmarks || FALLBACK_LANDMARKS;
+
+  if (areArmsUp) {
+    similarityData = calculatePoseSimilarity(results.poseLandmarks);
+    debugLog("Datos de similitud:", similarityData);
+
+    if (similarityData) {
+      updateSimilarityUI(similarityData.similarity);
+
+      // Actualizar puntuación del usuario
+      const rawScore = similarityData.similarity * 5;
+
+      // Suavizar con promedio móvil
+      scoreHistory.push(rawScore);
+      if (scoreHistory.length > SCORE_HISTORY_LENGTH) {
+        scoreHistory.shift();
+      }
+
+      const avgScore =
+        scoreHistory.reduce((a, b) => a + b, 0) / scoreHistory.length;
+      const finalScore = Math.min(5, parseFloat(avgScore.toFixed(1)));
+
+      debugLog(
+        "Puntuación en bruto:",
+        rawScore,
+        "Promedio:",
+        avgScore,
+        "Puntuación final:",
+        finalScore
+      );
+
+      // Actualizar UI solo si hay cambio significativo
+      if (Math.abs(finalScore - lastScore) >= 0.05) {
+        debugLog("Actualizando puntuación a:", finalScore);
+        updateUserScore(finalScore);
+        lastScore = finalScore;
+
+        // Resaltar puntos problemáticos
+        highlightProblemAreas(similarityData.pointErrors);
+      }
+    }
   }
 
   // Actualizar valores del usuario
   updateUserValues(results.poseLandmarks);
 
-  // Condición: brazos arriba (manos por encima de la cabeza)
-  if (leftHandY < headY && rightHandY < headY) {
+  if (areArmsUp) {
     let resultText = languageStrings[currentLanguage].poseDetected;
 
-    if (similarityScore !== null) {
+    if (similarityData !== null) {
       resultText += ` - ${languageStrings[currentLanguage].similarity}: ${(
-        similarityScore * 100
+        similarityData.similarity * 100
       ).toFixed(1)}%`;
     }
 
@@ -575,27 +711,83 @@ function onResults(results) {
 
 // Calcular similitud con pose de referencia
 function calculatePoseSimilarity(userLandmarks) {
-  if (
-    !referenceLandmarks ||
-    userLandmarks.length !== referenceLandmarks.length
-  ) {
-    return 0;
+  if (!userLandmarks) {
+    debugLog(SIM_DEBUG_PREFIX, "Landmarks de usuario no definidos");
+    return { similarity: 0, pointErrors: {} };
   }
 
-  let totalDistance = 0;
-  const keyPoints = [0, 11, 12, 13, 14, 15, 16, 23, 24]; // Puntos clave para comparar
+  debugLog(SIM_DEBUG_PREFIX, "Calculando similitud...");
+
+  // Usar referencia o fallback si no hay landmarks
+  const ref = referenceLandmarks || FALLBACK_LANDMARKS;
+
+  // Puntos clave para la pose de brazos arriba (solo partes superiores)
+  const keyPoints = [11, 12, 13, 14, 15, 16]; // Hombros, codos, muñecas
+
+  let totalError = 0;
+  const pointErrors = {};
+  let validPoints = 0;
+
+  // Calcular el centro de los hombros para normalizar
+  const userShoulderCenter = {
+    x: (userLandmarks[11].x + userLandmarks[12].x) / 2,
+    y: (userLandmarks[11].y + userLandmarks[12].y) / 2,
+  };
+
+  const refShoulderCenter = {
+    x: (ref[11].x + ref[12].x) / 2,
+    y: (ref[11].y + ref[12].y) / 2,
+  };
+
+  debugLog("Centro de hombros (usuario):", userShoulderCenter);
+  debugLog("Centro de hombros (referencia):", refShoulderCenter);
 
   for (const i of keyPoints) {
-    const dx = userLandmarks[i].x - referenceLandmarks[i].x;
-    const dy = userLandmarks[i].y - referenceLandmarks[i].y;
-    totalDistance += Math.sqrt(dx * dx + dy * dy);
+    // Solo considerar puntos visibles
+    if (userLandmarks[i].visibility > 0.5 && ref[i]) {
+      // Calcular posición relativa al centro de hombros
+      const userRelX = userLandmarks[i].x - userShoulderCenter.x;
+      const userRelY = userLandmarks[i].y - userShoulderCenter.y;
+
+      const refRelX = ref[i].x - refShoulderCenter.x;
+      const refRelY = ref[i].y - refShoulderCenter.y;
+
+      // Calcular diferencia entre posiciones relativas
+      const dx = userRelX - refRelX;
+      const dy = userRelY - refRelY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      debugLog(`Punto ${i}: distancia=${distance}`);
+
+      pointErrors[i] = distance;
+      totalError += distance;
+      validPoints++;
+    } else {
+      debugLog(
+        `Punto ${i} no visible. Visibilidad: ${userLandmarks[i].visibility}`
+      );
+    }
   }
 
-  // Normalizar y convertir a similitud (menor distancia = mayor similitud)
-  const maxPossibleDistance = Math.sqrt(2) * keyPoints.length; // Distancia máxima teórica
-  const similarity = 1 - totalDistance / maxPossibleDistance;
+  debugLog("Total de puntos válidos:", validPoints, "Error total:", totalError);
 
-  return Math.max(0, Math.min(1, similarity)); // Asegurar entre 0 y 1
+  // Si no hay suficientes puntos válidos, retornar similitud 0
+  if (validPoints < 3) {
+    debugLog(SIM_DEBUG_PREFIX, "Puntos válidos insuficientes (<3)");
+    return { similarity: 0, pointErrors };
+  }
+
+  // Normalizar error (0-1) y convertirlo a similitud
+  const avgError = totalError / validPoints;
+  const maxError = 0.5; // Valor empírico ajustado
+  const similarity = Math.max(0, 1 - avgError / maxError);
+
+  debugLog("Error promedio:", avgError, "Similitud:", similarity);
+
+  return {
+    similarity,
+    pointErrors,
+  };
 }
 
 // Actualizar UI de similitud
@@ -620,6 +812,60 @@ function updateSimilarityUI(similarity) {
   }
 }
 
+// Resaltar puntos problemáticos
+function highlightProblemAreas(errors) {
+  if (!errors) return;
+
+  // Encontrar los 3 puntos con mayor error
+  const problemPoints = Object.entries(errors)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map((item) => parseInt(item[0]));
+
+  scoreProblemPoints = problemPoints;
+
+  // Actualizar UI
+  const userValues = document.getElementById("userValues");
+  if (userValues) {
+    const rows = userValues.querySelectorAll(".value-row");
+    rows.forEach((row) => {
+      const index = parseInt(row.dataset.pointIndex);
+      if (problemPoints.includes(index)) {
+        row.classList.add("highlight");
+      } else {
+        row.classList.remove("highlight");
+      }
+    });
+  }
+}
+
+// Actualizar puntuación del usuario
+function updateUserScore(score) {
+  debugLog("Actualizando puntuación:", score);
+
+  if (!userScoreElement) {
+    debugLog("Elemento userScoreElement no encontrado");
+    return;
+  }
+
+  userScoreElement.textContent = score.toFixed(1);
+  userScoreElement.classList.add("score-change");
+
+  // Cambiar color según puntuación
+  if (score >= 4.0) {
+    userScoreElement.style.color = "#4CAF50";
+  } else if (score >= 2.0) {
+    userScoreElement.style.color = "#FFC107";
+  } else {
+    userScoreElement.style.color = "#F44336";
+  }
+
+  // Remover clase de animación después de completar
+  setTimeout(() => {
+    userScoreElement.classList.remove("score-change");
+  }, 500);
+}
+
 // Capturar imagen y enviar feedback
 function captureAndSendFeedback(userLandmarks, isManual = false) {
   if (!canvas || !ctx) return;
@@ -638,7 +884,7 @@ function captureAndSendFeedback(userLandmarks, isManual = false) {
 
   // Calcular similitud con referencia
   const similarityScore = referenceLandmarks
-    ? calculatePoseSimilarity(userLandmarks)
+    ? calculatePoseSimilarity(userLandmarks).similarity
     : null;
 
   // Enviar para feedback
@@ -666,6 +912,7 @@ async function requestFeedback(
       isAuto,
       language: currentLanguage,
       similarityScore,
+      currentScore: lastScore, // Incluir puntuación actual
     };
 
     const res = await fetch("/api/feedback", {
@@ -866,8 +1113,34 @@ function processSpeechQueue() {
   speechSynthesis.speak(currentUtterance);
 }
 
+// Inicializar elementos de puntuación
+document.addEventListener("DOMContentLoaded", () => {
+  userScoreElement = document.getElementById("userScore");
+  targetScoreElement = document.getElementById("targetScore");
+
+  debugLog("Elementos de puntuación:", {
+    userScore: userScoreElement,
+    targetScore: targetScoreElement,
+  });
+
+  if (!userScoreElement) {
+    console.error("Elemento #userScore no encontrado en el DOM");
+  }
+
+  if (!targetScoreElement) {
+    console.error("Elemento #targetScore no encontrado en el DOM");
+  } else {
+    targetScoreElement.textContent = "5.0";
+  }
+
+  // Inicializar puntuación
+  updateUserScore(0);
+  debugLog("Puntuación inicializada a 0.0");
+});
+
 // Inicializar idioma y referencia
 setLanguage("es");
+debugLog("Aplicación inicializada. Modo depuración activado");
 
 // Definir conexiones POSE si no están disponibles
 if (!window.POSE_CONNECTIONS) {

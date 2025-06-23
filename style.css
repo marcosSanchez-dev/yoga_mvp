@@ -360,3 +360,113 @@ button {
     background-color: rgba(255, 152, 0, 0.1);
   }
 }
+
+/* === SCORE DISPLAY === */
+.score-container {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin: 15px 0;
+}
+
+.score-box {
+  text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 20px;
+  border-radius: 10px;
+  min-width: 100px;
+}
+
+.score-label {
+  font-size: 0.9em;
+  opacity: 0.8;
+  margin-bottom: 5px;
+}
+
+#userScore,
+#targetScore {
+  font-size: 2.5em;
+  font-weight: bold;
+  color: #4ecdc4;
+}
+
+#targetScore {
+  color: #4caf50;
+}
+
+/* Animación para cambios en la calificación */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.score-change {
+  animation: pulse 0.5s ease-in-out;
+}
+
+/* === SCORE DISPLAY === */
+.score-container {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin: 15px 0;
+}
+
+.score-box {
+  text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 20px;
+  border-radius: 10px;
+  min-width: 100px;
+}
+
+.score-label {
+  font-size: 0.9em;
+  opacity: 0.8;
+  margin-bottom: 5px;
+}
+
+#userScore,
+#targetScore {
+  font-size: 2.5em;
+  font-weight: bold;
+}
+
+#userScore {
+  color: #4ecdc4;
+}
+
+#targetScore {
+  color: #4caf50;
+}
+
+/* Animación para cambios en la calificación */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.score-change {
+  animation: pulse 0.5s ease-in-out;
+}
+
+/* Resaltado de puntos problemáticos */
+.highlight {
+  color: #ff9800;
+  font-weight: bold;
+  animation: pulse 1s infinite;
+}
