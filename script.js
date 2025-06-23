@@ -947,7 +947,12 @@ async function requestFeedback(
 
     const res = await fetch(proxyUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Agrega este header para CORS simple
+        "Sec-Fetch-Mode": "cors",
+      },
+      mode: "cors", // Asegura el modo CORS
       body: JSON.stringify(payload),
     });
 

@@ -8,23 +8,19 @@ dotenv.config();
 const app = express();
 
 // Habilita CORS para todas las rutas
-app.use(
-  cors({
-    origin: "*", // Permite todos los orígenes temporalmente
-    methods: ["POST", "OPTIONS"], // Añade OPTIONS
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: "*",
+  methods: ["POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 app.use(express.json());
-
-app.options("/feedback", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.status(200).send();
-});
 
 app.post("/feedback", async (req, res) => {
   try {
