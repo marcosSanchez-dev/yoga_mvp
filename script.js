@@ -1,3 +1,108 @@
+// Configuración inicial de Three.js para el fondo de partículas
+let particlesScene, particlesCamera, particlesRenderer, particles;
+
+function initParticles() {
+  // Verificar si Three.js está disponible
+  if (typeof THREE === "undefined") {
+    console.error("Three.js no está disponible");
+    return;
+  }
+
+  // 1. Configuración de escena, cámara y renderizador
+  particlesScene = new THREE.Scene();
+  particlesCamera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+
+  particlesRenderer = new THREE.WebGLRenderer({
+    alpha: true,
+    antialias: true,
+  });
+
+  particlesRenderer.setSize(window.innerWidth, window.innerHeight);
+  particlesRenderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+  document
+    .getElementById("particles-bg")
+    .appendChild(particlesRenderer.domElement);
+
+  // 2. Crear geometría y material mejorados
+  const particleGeometry = new THREE.BufferGeometry();
+  const count = 2000;
+  const positions = new Float32Array(count * 3);
+
+  for (let i = 0; i < count * 3; i++) {
+    positions[i] = (Math.random() - 0.5) * 50;
+  }
+
+  particleGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(positions, 3)
+  );
+
+  const particleMaterial = new THREE.PointsMaterial({
+    color: 0x4ecdc4,
+    size: 0.25,
+    transparent: true,
+    opacity: 0.8,
+    sizeAttenuation: true,
+  });
+
+  // 3. Crear sistema de partículas
+  particles = new THREE.Points(particleGeometry, particleMaterial);
+  particlesScene.add(particles);
+
+  // 4. Posicionar cámara correctamente
+  particlesCamera.position.z = 30;
+  particlesCamera.position.y = 5;
+
+  // 5. Añadir efectos de movimiento
+  const clock = new THREE.Clock();
+
+  function animateParticles() {
+    requestAnimationFrame(animateParticles);
+
+    const elapsedTime = clock.getElapsedTime();
+
+    // Animación suave
+    particles.rotation.y = elapsedTime * 0.1;
+
+    particlesRenderer.render(particlesScene, particlesCamera);
+  }
+
+  animateParticles();
+
+  // 6. Manejo de redimensionamiento
+  window.addEventListener("resize", () => {
+    particlesCamera.aspect = window.innerWidth / window.innerHeight;
+    particlesCamera.updateProjectionMatrix();
+    particlesRenderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+function animateParticles() {
+  requestAnimationFrame(animateParticles);
+
+  if (!particles) return;
+
+  particles.children.forEach((particle) => {
+    particle.position.add(particle.userData.velocity);
+
+    // Rebotar en los límites imaginarios
+    if (Math.abs(particle.position.x) > 10) particle.userData.velocity.x *= -1;
+    if (Math.abs(particle.position.y) > 10) particle.userData.velocity.y *= -1;
+    if (Math.abs(particle.position.z) > 10) particle.userData.velocity.z *= -1;
+  });
+
+  particles.rotation.x += 0.0005;
+  particles.rotation.y += 0.001;
+
+  particlesRenderer.render(particlesScene, particlesCamera);
+}
+
+// Variables globales
 const video = document.getElementById("videoElement");
 const startBtn = document.getElementById("startBtn");
 const toggleDetectBtn = document.getElementById("toggleDetectBtn");
@@ -5,7 +110,7 @@ const poseResult = document.getElementById("poseResult");
 const feedbackContainer = document.getElementById("feedbackContainer");
 const languageToggle = document.getElementById("languageToggle");
 const poseReference = document.getElementById("poseReference");
-const toggleReferenceBtn = document.getElementById("toggleReferenceBtn");
+const activateVoiceBtn = document.getElementById("activateVoice");
 
 let pose;
 let camera;
@@ -13,59 +118,41 @@ let canvas;
 let ctx;
 let stream = null;
 let isDetectionActive = false;
+let isVoiceActive = false;
 
-// Landmarks de referencia para la pose ideal
+// Landmarks de referencia
 let referenceLandmarks = null;
 const REFERENCE_POSE = "armsUp";
 
-// Landmarks de respaldo en caso de que el análisis de la imagen falle
-const FALLBACK_LANDMARKS = new Array(33); // Crear array de 33 elementos
-FALLBACK_LANDMARKS[0] = { x: 0.5, y: 0.15, visibility: 1 }; // cabeza
-FALLBACK_LANDMARKS[11] = { x: 0.35, y: 0.3, visibility: 1 }; // hombro izquierdo
-FALLBACK_LANDMARKS[12] = { x: 0.65, y: 0.3, visibility: 1 }; // hombro derecho
-FALLBACK_LANDMARKS[13] = { x: 0.3, y: 0.15, visibility: 1 }; // codo izquierdo
-FALLBACK_LANDMARKS[14] = { x: 0.7, y: 0.15, visibility: 1 }; // codo derecho
-FALLBACK_LANDMARKS[15] = { x: 0.25, y: 0.05, visibility: 1 }; // muñeca izquierda
-FALLBACK_LANDMARKS[16] = { x: 0.75, y: 0.05, visibility: 1 }; // muñeca derecha
-FALLBACK_LANDMARKS[23] = { x: 0.4, y: 0.6, visibility: 1 }; // cadera izquierda
-FALLBACK_LANDMARKS[24] = { x: 0.6, y: 0.6, visibility: 1 }; // cadera derecha
+// Landmarks de respaldo
+const FALLBACK_LANDMARKS = new Array(33);
+FALLBACK_LANDMARKS[0] = { x: 0.5, y: 0.15, visibility: 1 };
+FALLBACK_LANDMARKS[11] = { x: 0.35, y: 0.3, visibility: 1 };
+FALLBACK_LANDMARKS[12] = { x: 0.65, y: 0.3, visibility: 1 };
+FALLBACK_LANDMARKS[13] = { x: 0.3, y: 0.15, visibility: 1 };
+FALLBACK_LANDMARKS[14] = { x: 0.7, y: 0.15, visibility: 1 };
+FALLBACK_LANDMARKS[15] = { x: 0.25, y: 0.05, visibility: 1 };
+FALLBACK_LANDMARKS[16] = { x: 0.75, y: 0.05, visibility: 1 };
+FALLBACK_LANDMARKS[23] = { x: 0.4, y: 0.6, visibility: 1 };
+FALLBACK_LANDMARKS[24] = { x: 0.6, y: 0.6, visibility: 1 };
 
-// Variables globales de pose para el feedback
-let headY = null;
-let leftHandY = null;
-let rightHandY = null;
-
-// Sistema de cola para reproducción de voz
+// Sistema de voz
 let speechQueue = [];
 let isSpeaking = false;
 let currentUtterance = null;
 
-// Variables para control de frecuencia de feedback
+// Control de feedback
 let lastAutoFeedbackTime = 0;
 const MIN_FEEDBACK_INTERVAL = 5000;
 let isGeneratingFeedback = false;
 
-// Estado de visibilidad de referencia
-let isReferenceVisible = true;
-
-// Variables para sistema de puntuación
-let userScoreElement = null;
-let targetScoreElement = null;
+// Sistema de puntuación
+let userScoreElement = document.getElementById("userScore");
+let targetScoreElement = document.getElementById("targetScore");
 let lastScore = 0;
 const SCORE_HISTORY_LENGTH = 5;
 let scoreHistory = [];
 let scoreProblemPoints = [];
-
-// Modo depuración
-const DEBUG_MODE = true;
-const REF_DEBUG_PREFIX = "[REF]";
-const SIM_DEBUG_PREFIX = "[SIM]";
-
-function debugLog(...args) {
-  if (DEBUG_MODE) {
-    console.log("[DEBUG]", ...args);
-  }
-}
 
 // Configuración de idioma
 let currentLanguage = "es";
@@ -86,7 +173,7 @@ const languageStrings = {
     thinking: "Observando tu pose...",
     master: "🧘‍♂️ MAESTRO",
     errorFeedback: "Error al conectar con el maestro de yoga.",
-    languageBtn: "English",
+    languageBtn: "EN",
     hideReference: "Ocultar Referencia",
     showReference: "Mostrar Referencia",
     referenceTitle: "Pose Objetivo: Brazos Arriba",
@@ -105,6 +192,8 @@ const languageStrings = {
     rightHip: "Cadera Der",
     yourScoreLabel: "Tu calificación",
     targetScoreLabel: "Objetivo",
+    voiceOn: "Voz activada",
+    voiceOff: "Voz desactivada",
   },
   en: {
     welcome:
@@ -120,9 +209,9 @@ const languageStrings = {
     stopped: "Detection stopped",
     analyzing: "🧘‍♂️ ANALYZING",
     thinking: "Observing your pose...",
-    master: "🧘‍♂️ MASTER",
+    master: "🧘‍♂️ MAESTRO",
     errorFeedback: "Error connecting to yoga master.",
-    languageBtn: "Español",
+    languageBtn: "ES",
     hideReference: "Hide Reference",
     showReference: "Show Reference",
     referenceTitle: "Target Pose: Arms Up",
@@ -141,66 +230,73 @@ const languageStrings = {
     rightHip: "Right Hip",
     yourScoreLabel: "Your Score",
     targetScoreLabel: "Target",
+    voiceOn: "Voice activated",
+    voiceOff: "Voice deactivated",
   },
 };
 
-// Crear canvas para capturas
+// ================= FUNCIONES PRINCIPALES =================
+
+function toggleVoice() {
+  isVoiceActive = !isVoiceActive;
+
+  if (isVoiceActive) {
+    activateVoiceBtn.classList.add("voice-active");
+    window.userInteracted = true;
+    speakText(languageStrings[currentLanguage].voiceOn);
+  } else {
+    activateVoiceBtn.classList.remove("voice-active");
+    speechSynthesis.cancel();
+    speakText(languageStrings[currentLanguage].voiceOff);
+  }
+}
+
+function setLanguage(lang) {
+  currentLanguage = lang;
+  const strings = languageStrings[lang];
+
+  // Actualizar UI
+  languageToggle.textContent = strings.languageBtn;
+  document.querySelector("h1").textContent =
+    lang === "es" ? "🧘 Maestro de Yoga Virtual" : "🧘 Virtual Yoga Master";
+
+  // Actualizar botones
+  startBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 10L19 7V17L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+  </svg><span>${stream ? strings.restartCamera : strings.startCamera}</span>`;
+
+  toggleDetectBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" stroke-width="2"/>
+    <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg><span>${
+    isDetectionActive ? strings.stopDetection : strings.startDetection
+  }</span>`;
+
+  activateVoiceBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 3V19M8 8V16M16 6V18M20 9V15M4 9V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </svg><span>${isVoiceActive ? strings.voiceOff : strings.voiceOn}</span>`;
+
+  // Actualizar otros textos
+  document.getElementById("referenceTitle").textContent =
+    strings.referenceTitle;
+  document.getElementById("yourScoreLabel").textContent =
+    strings.yourScoreLabel;
+  document.getElementById("targetScoreLabel").textContent =
+    strings.targetScoreLabel;
+
+  // Actualizar feedback existente
+  updateFeedbackContainerLanguage();
+  loadReferenceImage();
+}
+
 function setupCanvas() {
   canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   ctx = canvas.getContext("2d");
-  debugLog("Canvas configurado:", canvas.width, "x", canvas.height);
 }
 
-// Función para cambiar idioma
-function setLanguage(lang) {
-  currentLanguage = lang;
-  const strings = languageStrings[lang];
-  debugLog("Cambiando idioma a:", lang);
-
-  // Actualizar textos estáticos
-  languageToggle.textContent = strings.languageBtn;
-  document.querySelector("h1").textContent =
-    lang === "es" ? "🧘 Maestro de Yoga Virtual" : "🧘 Virtual Yoga Master";
-  document.getElementById("referenceTitle").textContent =
-    strings.referenceTitle;
-  toggleReferenceBtn.textContent = isReferenceVisible
-    ? strings.hideReference
-    : strings.showReference;
-
-  // Actualizar botones
-  startBtn.textContent = strings.startCamera;
-  toggleDetectBtn.textContent = isDetectionActive
-    ? strings.stopDetection
-    : strings.startDetection;
-  poseResult.textContent = isDetectionActive
-    ? strings.detecting
-    : strings.stopped;
-
-  // Actualizar etiquetas de similitud si existen
-  const similarityLabels = document.querySelectorAll(".similarity-label");
-  if (similarityLabels.length >= 2) {
-    similarityLabels[0].textContent = strings.referenceScore;
-    similarityLabels[2].textContent = strings.yourScore;
-  }
-
-  // Actualizar puntuaciones
-  if (userScoreElement) {
-    document.querySelector("#yourScoreLabel").textContent =
-      strings.yourScoreLabel;
-    document.querySelector("#targetScoreLabel").textContent =
-      strings.targetScoreLabel;
-  }
-
-  // Actualizar imagen de referencia
-  loadReferenceImage();
-
-  // Actualizar mensajes en el contenedor de feedback
-  updateFeedbackContainerLanguage();
-}
-
-// Cargar imagen de referencia
 function loadReferenceImage() {
   const loadingMessage = document.getElementById("referenceLoading");
   if (!loadingMessage) return;
@@ -215,52 +311,22 @@ function loadReferenceImage() {
     poseReference.src = img.src;
     loadingMessage.style.display = "none";
     poseReference.style.display = "block";
-
-    // Si ya tenemos landmarks de referencia, dibujarlos
-    if (referenceLandmarks) {
-      drawReferenceLandmarks();
-    } else {
-      // Analizar en segundo plano
-      debugLog(
-        REF_DEBUG_PREFIX,
-        "Imagen de referencia cargada. Iniciando análisis..."
-      );
-      await analyzeReferenceImage();
-
-      // Reintentar después de 2 segundos si aún falla
-      setTimeout(() => {
-        if (!referenceLandmarks) {
-          console.warn("Usando fallback landmarks después de timeout");
-          referenceLandmarks = FALLBACK_LANDMARKS;
-          drawReferenceLandmarks();
-        }
-      }, 3000);
-    }
+    await analyzeReferenceImage();
   };
 
   img.onerror = () => {
-    if (loadingMessage) {
-      loadingMessage.textContent =
-        currentLanguage === "es"
-          ? "Error cargando referencia"
-          : "Error loading reference";
-    }
-    debugLog(REF_DEBUG_PREFIX, "Error al cargar la imagen de referencia");
+    loadingMessage.textContent =
+      currentLanguage === "es"
+        ? "Error cargando referencia"
+        : "Error loading reference";
   };
 
   img.src = `assets/pose_arms_up_${currentLanguage}.jpg`;
-  debugLog("Cargando imagen de referencia:", img.src);
 }
 
-// Analizar imagen de referencia para extraer landmarks
 async function analyzeReferenceImage() {
-  debugLog(REF_DEBUG_PREFIX, "Iniciando análisis de imagen de referencia...");
   const img = document.getElementById("poseReference");
-
-  if (!img || !img.complete || img.naturalWidth === 0) {
-    debugLog(REF_DEBUG_PREFIX, "Imagen no válida o no cargada");
-    return;
-  }
+  if (!img || !img.complete || img.naturalWidth === 0) return;
 
   const refCanvas = document.createElement("canvas");
   const refCtx = refCanvas.getContext("2d");
@@ -283,26 +349,17 @@ async function analyzeReferenceImage() {
     poseAnalyzer.onResults((results) => {
       if (results.poseLandmarks) {
         referenceLandmarks = results.poseLandmarks;
-        debugLog(
-          REF_DEBUG_PREFIX,
-          "Landmarks de referencia obtenidos:",
-          referenceLandmarks
-        );
         drawReferenceLandmarks();
         updateReferenceValues();
-      } else {
-        debugLog(
-          REF_DEBUG_PREFIX,
-          "No se detectaron landmarks en la imagen de referencia"
-        );
       }
     });
   } catch (e) {
-    debugLog(REF_DEBUG_PREFIX, "Error analizando imagen de referencia:", e);
+    console.error("Error analizando imagen de referencia:", e);
+    referenceLandmarks = FALLBACK_LANDMARKS;
+    drawReferenceLandmarks();
   }
 }
 
-// Dibujar landmarks en la imagen de referencia
 function drawReferenceLandmarks() {
   if (!referenceLandmarks) return;
 
@@ -313,15 +370,11 @@ function drawReferenceLandmarks() {
   const refCtx = refCanvas.getContext("2d");
   refCanvas.width = img.naturalWidth;
   refCanvas.height = img.naturalHeight;
-
-  // Dibujar la imagen original
   refCtx.drawImage(img, 0, 0, refCanvas.width, refCanvas.height);
 
-  // Dibujar landmarks
   refCtx.strokeStyle = "#00FF00";
   refCtx.lineWidth = 2;
 
-  // Usar conexiones estándar si no están definidas
   const connections = window.POSE_CONNECTIONS || [
     [0, 1],
     [1, 2],
@@ -360,7 +413,6 @@ function drawReferenceLandmarks() {
     [28, 32],
   ];
 
-  // Dibujar conexiones - SÓLO SI EXISTEN AMBOS PUNTOS
   for (const [start, end] of connections) {
     if (referenceLandmarks[start] && referenceLandmarks[end]) {
       refCtx.beginPath();
@@ -376,7 +428,6 @@ function drawReferenceLandmarks() {
     }
   }
 
-  // Dibujar puntos - SÓLO SI EXISTEN
   refCtx.fillStyle = "#FF0000";
   for (let i = 0; i < referenceLandmarks.length; i++) {
     const landmark = referenceLandmarks[i];
@@ -393,20 +444,16 @@ function drawReferenceLandmarks() {
     }
   }
 
-  // Actualizar la imagen con los landmarks dibujados
   img.src = refCanvas.toDataURL();
 }
 
-// Actualizar valores de referencia
 function updateReferenceValues() {
   if (!referenceLandmarks) return;
-
   const refValues = document.getElementById("referenceValues");
   if (!refValues) return;
 
-  refValues.innerHTML = "";
+  refValues.innerHTML = `<div class="values-header">${languageStrings[currentLanguage].referenceScore}</div>`;
 
-  // Definir puntos clave a mostrar
   const keyPoints = {
     0: languageStrings[currentLanguage].nose,
     11: languageStrings[currentLanguage].leftShoulder,
@@ -419,10 +466,6 @@ function updateReferenceValues() {
     24: languageStrings[currentLanguage].rightHip,
   };
 
-  // Encabezado
-  refValues.innerHTML = `<div class="values-header">${languageStrings[currentLanguage].referenceScore}</div>`;
-
-  // Llenar con los valores
   Object.entries(keyPoints).forEach(([index, label]) => {
     const pointIndex = parseInt(index);
     if (referenceLandmarks[pointIndex]) {
@@ -439,16 +482,13 @@ function updateReferenceValues() {
   });
 }
 
-// Actualizar valores del usuario en tiempo real
 function updateUserValues(userLandmarks) {
   if (!userLandmarks) return;
-
   const userValues = document.getElementById("userValues");
   if (!userValues) return;
 
-  userValues.innerHTML = "";
+  userValues.innerHTML = `<div class="values-header">${languageStrings[currentLanguage].yourScore}</div>`;
 
-  // Definir puntos clave a mostrar
   const keyPoints = {
     0: languageStrings[currentLanguage].nose,
     11: languageStrings[currentLanguage].leftShoulder,
@@ -461,32 +501,25 @@ function updateUserValues(userLandmarks) {
     24: languageStrings[currentLanguage].rightHip,
   };
 
-  // Encabezado
-  userValues.innerHTML = `<div class="values-header">${languageStrings[currentLanguage].yourScore}</div>`;
-
-  // Llenar con los valores
   Object.entries(keyPoints).forEach(([index, label]) => {
     const point = userLandmarks[parseInt(index)];
     if (point) {
       const row = document.createElement("div");
       row.className = "value-row";
-      row.dataset.pointIndex = index; // Para resaltar puntos problemáticos
+      row.dataset.pointIndex = index;
       row.innerHTML = `
         <span class="point-label">${label}:</span>
         <span>X: ${point.x.toFixed(2)}</span>
         <span>Y: ${point.y.toFixed(2)}</span>
       `;
-      userValues.appendChild(row);
-
-      // Aplicar resaltado si este punto es problemático
       if (scoreProblemPoints.includes(parseInt(index))) {
         row.classList.add("highlight");
       }
+      userValues.appendChild(row);
     }
   });
 }
 
-// Actualizar textos en el contenedor de feedback
 function updateFeedbackContainerLanguage() {
   const messages = feedbackContainer.querySelectorAll(".feedback-message");
   messages.forEach((msg) => {
@@ -497,7 +530,6 @@ function updateFeedbackContainerLanguage() {
         autoIndicator.textContent = languageStrings[currentLanguage].master;
       }
 
-      // Actualizar mensajes específicos
       if (
         content.textContent.includes("Bienvenido") ||
         content.textContent.includes("Welcome")
@@ -510,192 +542,66 @@ function updateFeedbackContainerLanguage() {
   });
 }
 
-// Evento para cambio de idioma
-languageToggle.addEventListener("click", () => {
-  const newLang = currentLanguage === "es" ? "en" : "es";
-  setLanguage(newLang);
-});
-
-// Evento para mostrar/ocultar referencia
-toggleReferenceBtn.addEventListener("click", () => {
-  isReferenceVisible = !isReferenceVisible;
-
-  const loadingMessage = document.getElementById("referenceLoading");
-  if (poseReference) {
-    poseReference.style.display = isReferenceVisible ? "block" : "none";
-  }
-  if (loadingMessage) {
-    loadingMessage.style.display = isReferenceVisible ? "block" : "none";
-  }
-
-  toggleReferenceBtn.textContent = isReferenceVisible
-    ? languageStrings[currentLanguage].hideReference
-    : languageStrings[currentLanguage].showReference;
-});
-
-startBtn.addEventListener("click", async () => {
-  try {
-    // Detener detección si está activa
-    if (isDetectionActive) {
-      stopDetection();
-    }
-
-    // Detener cámara anterior si existe
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-    }
-
-    // Iniciar nueva cámara
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: "user",
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-      },
-    });
-
-    video.srcObject = stream;
-    startBtn.textContent = languageStrings[currentLanguage].restartCamera;
-
-    // Configurar canvas cuando el video esté listo
-    video.onloadedmetadata = () => {
-      setupCanvas();
-      toggleDetectBtn.disabled = false;
-      toggleDetectBtn.textContent =
-        languageStrings[currentLanguage].startDetection;
-    };
-  } catch (err) {
-    alert(
-      currentLanguage === "es"
-        ? "No se pudo acceder a la cámara: " + err.message
-        : "Could not access camera: " + err.message
-    );
-  }
-});
-
-// Función para detener la detección
 function stopDetection() {
-  if (camera) {
-    camera.stop();
-  }
+  if (camera) camera.stop();
   isDetectionActive = false;
-  toggleDetectBtn.textContent = languageStrings[currentLanguage].startDetection;
+  toggleDetectBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" stroke-width="2"/>
+    <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg><span>${languageStrings[currentLanguage].startDetection}</span>`;
   poseResult.textContent = languageStrings[currentLanguage].stopped;
   toggleDetectBtn.classList.remove("active");
-
-  // Resetear puntuación
   updateUserScore(0);
   scoreHistory = [];
   scoreProblemPoints = [];
-  debugLog("Detección detenida. Puntuación reiniciada");
 }
-
-// Modificar evento de detección (toggle)
-toggleDetectBtn.addEventListener("click", () => {
-  if (!isDetectionActive) {
-    // Iniciar detección
-    setupPose();
-    isDetectionActive = true;
-    toggleDetectBtn.textContent =
-      languageStrings[currentLanguage].stopDetection;
-    poseResult.textContent = languageStrings[currentLanguage].detecting;
-    toggleDetectBtn.classList.add("active");
-    debugLog("Detección iniciada");
-
-    // Mostrar referencia si estaba oculta al iniciar detección
-    if (!isReferenceVisible) {
-      isReferenceVisible = true;
-      if (poseReference) poseReference.style.display = "block";
-      const loadingMessage = document.getElementById("referenceLoading");
-      if (loadingMessage) loadingMessage.style.display = "block";
-      toggleReferenceBtn.textContent =
-        languageStrings[currentLanguage].hideReference;
-    }
-  } else {
-    // Detener detección
-    stopDetection();
-  }
-});
 
 function onResults(results) {
   if (!isDetectionActive) return;
 
   if (!results.poseLandmarks) {
-    debugLog("No se detectan landmarks en el cuerpo");
     poseResult.textContent = languageStrings[currentLanguage].noBody;
-    headY = leftHandY = rightHandY = null;
     return;
   }
 
-  // Actualizar variables GLOBALES con los landmarks
-  headY = results.poseLandmarks[0].y;
-  leftHandY = results.poseLandmarks[15].y;
-  rightHandY = results.poseLandmarks[16].y;
-
-  debugLog("Posición cabeza Y:", headY);
-  debugLog("Posición mano izquierda Y:", leftHandY);
-  debugLog("Posición mano derecha Y:", rightHandY);
-
-  // Usar referencia o fallback si no hay landmarks
   const refLandmarks = referenceLandmarks || FALLBACK_LANDMARKS;
-
-  // Calcular similitud en TODO momento (incluso cuando los brazos no están arriba)
   const similarityData = calculatePoseSimilarity(results.poseLandmarks);
-  debugLog("Datos de similitud:", similarityData);
 
   if (similarityData) {
     updateSimilarityUI(similarityData.similarity);
-
-    // Aumentar multiplicador para puntuaciones más altas
-    const rawScore = similarityData.similarity * 7; // Más generoso (antes era 5)
-
-    // Suavizar con promedio móvil usando pesos (más peso a los últimos valores)
+    const rawScore = similarityData.similarity * 7;
     scoreHistory.push(rawScore);
-    if (scoreHistory.length > SCORE_HISTORY_LENGTH) {
-      scoreHistory.shift();
-    }
+    if (scoreHistory.length > SCORE_HISTORY_LENGTH) scoreHistory.shift();
 
-    // Promedio ponderado (los últimos valores pesan más)
-    const weights = [0.6, 0.7, 0.8, 1.0, 1.2]; // Más peso a valores recientes
+    const weights = [0.6, 0.7, 0.8, 1.0, 1.2];
     const weightedSum = scoreHistory.reduce((sum, score, index) => {
-      const weight = weights[index] || 1.0;
-      return sum + score * weight;
+      return sum + score * (weights[index] || 1.0);
     }, 0);
-
     const weightSum = weights
       .slice(0, scoreHistory.length)
       .reduce((a, b) => a + b, 0);
     const weightedAvg = weightedSum / weightSum;
-
-    // Limitar a 5 pero permitiendo valores más altos temporalmente
     const finalScore = Math.min(5, parseFloat(weightedAvg.toFixed(1)));
 
-    // Solo actualizar UI si hay cambio significativo
     if (Math.abs(finalScore - lastScore) >= 0.05) {
-      debugLog("Actualizando puntuación a:", finalScore);
       updateUserScore(finalScore);
       lastScore = finalScore;
       highlightProblemAreas(similarityData.pointErrors);
     }
   }
 
-  // Actualizar valores del usuario
   updateUserValues(results.poseLandmarks);
-
-  // Solo procesar si los brazos están arriba
-  const areArmsUp = leftHandY < headY && rightHandY < headY;
-
-  debugLog("Brazos arriba:", areArmsUp);
+  const areArmsUp =
+    results.poseLandmarks[15].y < results.poseLandmarks[0].y &&
+    results.poseLandmarks[16].y < results.poseLandmarks[0].y;
 
   if (areArmsUp) {
     let resultText = languageStrings[currentLanguage].poseDetected;
-
-    if (similarityData !== null) {
+    if (similarityData) {
       resultText += ` - ${languageStrings[currentLanguage].similarity}: ${(
         similarityData.similarity * 100
       ).toFixed(1)}%`;
     }
-
     poseResult.textContent = resultText;
 
     const now = Date.now();
@@ -709,9 +615,7 @@ function onResults(results) {
     }
   } else {
     poseResult.textContent = languageStrings[currentLanguage].notBothArms;
-
-    // Mostrar similitud incluso cuando los brazos no están arriba
-    if (similarityData !== null) {
+    if (similarityData) {
       poseResult.textContent += ` - ${
         languageStrings[currentLanguage].similarity
       }: ${(similarityData.similarity * 100).toFixed(1)}%`;
@@ -719,26 +623,15 @@ function onResults(results) {
   }
 }
 
-// Calcular similitud con pose de referencia (menos estricto)
 function calculatePoseSimilarity(userLandmarks) {
-  if (!userLandmarks) {
-    debugLog(SIM_DEBUG_PREFIX, "Landmarks de usuario no definidos");
-    return { similarity: 0, pointErrors: {} };
-  }
+  if (!userLandmarks) return { similarity: 0, pointErrors: {} };
 
-  debugLog(SIM_DEBUG_PREFIX, "Calculando similitud...");
-
-  // Usar referencia o fallback si no hay landmarks
   const ref = referenceLandmarks || FALLBACK_LANDMARKS;
-
-  // Puntos clave para la pose de brazos arriba (incluyendo más puntos)
-  const keyPoints = [0, 11, 12, 13, 14, 15, 16, 23, 24]; // Añadimos cabeza y caderas
-
+  const keyPoints = [0, 11, 12, 13, 14, 15, 16, 23, 24];
   let totalError = 0;
   const pointErrors = {};
   let validPoints = 0;
 
-  // Calcular el centro del cuerpo para normalizar
   const userBodyCenter = {
     x:
       (userLandmarks[11].x +
@@ -761,95 +654,60 @@ function calculatePoseSimilarity(userLandmarks) {
 
   for (const i of keyPoints) {
     if (userLandmarks[i] && userLandmarks[i].visibility > 0.3 && ref[i]) {
-      // Umbral de visibilidad más bajo
-      // Calcular posición relativa al centro del cuerpo
       const userRelX = userLandmarks[i].x - userBodyCenter.x;
       const userRelY = userLandmarks[i].y - userBodyCenter.y;
-
       const refRelX = ref[i].x - refBodyCenter.x;
       const refRelY = ref[i].y - refBodyCenter.y;
-
-      // Calcular diferencia con tolerancia
       const dx = userRelX - refRelX;
       const dy = userRelY - refRelY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-
-      // Aplicar pesos diferentes según la importancia del punto
       let weight = 1.0;
-      if ([0, 15, 16].includes(i)) weight = 1.5; // Cabeza y manos más importantes
-      if ([23, 24].includes(i)) weight = 0.7; // Caderas menos importantes
-
+      if ([0, 15, 16].includes(i)) weight = 1.5;
+      if ([23, 24].includes(i)) weight = 0.7;
       pointErrors[i] = distance * weight;
       totalError += pointErrors[i];
       validPoints++;
     }
   }
 
-  // Si no hay suficientes puntos válidos, retornar similitud 0
-  if (validPoints < 5) {
-    debugLog(SIM_DEBUG_PREFIX, "Puntos válidos insuficientes (<5)");
-    return { similarity: 0, pointErrors };
-  }
-
-  // Normalizar error (0-1) y convertirlo a similitud
+  if (validPoints < 5) return { similarity: 0, pointErrors };
   const avgError = totalError / validPoints;
-  const maxError = 0.6; // Aumentamos el error máximo permitido (era 0.3)
-
-  // Función de suavizado para hacer la similitud más generosa
+  const maxError = 0.6;
   const similarity = Math.max(0, 1 - avgError / maxError);
-
-  // Aplicar curva de suavizado adicional
-  const adjustedSimilarity = Math.pow(similarity, 0.7); // Hacemos la curva menos estricta
-
-  debugLog(
-    "Error promedio:",
-    avgError,
-    "Similitud base:",
-    similarity,
-    "Similitud ajustada:",
-    adjustedSimilarity
-  );
+  const adjustedSimilarity = Math.pow(similarity, 0.7);
 
   return {
     similarity: adjustedSimilarity,
     pointErrors,
   };
 }
-// Actualizar UI de similitud
+
 function updateSimilarityUI(similarity) {
-  const similarityBar = document.getElementById("similarityBar");
   const similarityFill = document.getElementById("similarityFill");
   const similarityText = document.getElementById("similarityText");
+  if (!similarityFill || !similarityText) return;
 
-  if (similarityBar && similarityFill && similarityText) {
-    const percentage = Math.round(similarity * 100);
-    similarityFill.style.width = `${percentage}%`;
-    similarityText.textContent = `${percentage}%`;
+  const percentage = Math.round(similarity * 100);
+  similarityFill.style.width = `${percentage}%`;
+  similarityText.textContent = `${percentage}%`;
 
-    // Cambiar color según el porcentaje
-    if (percentage < 40) {
-      similarityFill.style.backgroundColor = "#f44336";
-    } else if (percentage < 70) {
-      similarityFill.style.backgroundColor = "#ff9800";
-    } else {
-      similarityFill.style.backgroundColor = "#4CAF50";
-    }
+  if (percentage < 40) {
+    similarityFill.style.backgroundColor = "#f44336";
+  } else if (percentage < 70) {
+    similarityFill.style.backgroundColor = "#ff9800";
+  } else {
+    similarityFill.style.backgroundColor = "#4CAF50";
   }
 }
 
-// Resaltar puntos problemáticos
 function highlightProblemAreas(errors) {
   if (!errors) return;
-
-  // Encontrar los 3 puntos con mayor error
   const problemPoints = Object.entries(errors)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map((item) => parseInt(item[0]));
+    .map(([index]) => parseInt(index));
 
   scoreProblemPoints = problemPoints;
-
-  // Actualizar UI
   const userValues = document.getElementById("userValues");
   if (userValues) {
     const rows = userValues.querySelectorAll(".value-row");
@@ -864,19 +722,11 @@ function highlightProblemAreas(errors) {
   }
 }
 
-// Actualizar puntuación del usuario
 function updateUserScore(score) {
-  debugLog("Actualizando puntuación:", score);
-
-  if (!userScoreElement) {
-    debugLog("Elemento userScoreElement no encontrado");
-    return;
-  }
-
+  if (!userScoreElement) return;
   userScoreElement.textContent = score.toFixed(1);
   userScoreElement.classList.add("score-change");
 
-  // Cambiar color según puntuación
   if (score >= 4.0) {
     userScoreElement.style.color = "#4CAF50";
   } else if (score >= 2.0) {
@@ -885,35 +735,23 @@ function updateUserScore(score) {
     userScoreElement.style.color = "#F44336";
   }
 
-  // Remover clase de animación después de completar
   setTimeout(() => {
     userScoreElement.classList.remove("score-change");
   }, 500);
 }
 
-// Capturar imagen y enviar feedback
-function captureAndSendFeedback(userLandmarks, isManual = false) {
+function captureAndSendFeedback(userLandmarks) {
   if (!canvas || !ctx) return;
-
-  // Dibujar el frame actual en el canvas
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  // Obtener imagen como base64
   const imageData = canvas.toDataURL("image/jpeg", 0.8);
-
-  // Crear descripción básica de la pose
   const poseDescription =
     currentLanguage === "es"
       ? "El usuario está manteniendo una pose de brazos arriba."
       : "The user is maintaining an arms-up yoga pose.";
-
-  // Calcular similitud con referencia
   const similarityScore = referenceLandmarks
     ? calculatePoseSimilarity(userLandmarks).similarity
     : null;
-
-  // Enviar para feedback
-  requestFeedback(poseDescription, imageData, !isManual, similarityScore);
+  requestFeedback(poseDescription, imageData, true, similarityScore);
 }
 
 async function requestFeedback(
@@ -923,44 +761,35 @@ async function requestFeedback(
   similarityScore = null
 ) {
   if (isGeneratingFeedback) return;
-
   isGeneratingFeedback = true;
-
-  // Mostrar mensaje de carga
   const loadingMessage = showLoadingMessage(isAuto);
 
   try {
-    // Crear payload con imagen y descripción
     const payload = {
       poseDescription,
       imageData,
       isAuto,
       language: currentLanguage,
       similarityScore,
-      currentScore: lastScore, // Incluir puntuación actual
+      currentScore: lastScore,
     };
 
     const proxyUrl = "https://yoga-mvp.onrender.com/feedback";
-
     const res = await fetch(proxyUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Origin: "https://yoga-mvp.vercel.app",
-        // Agrega este header para CORS simple
         "Sec-Fetch-Mode": "cors",
       },
-      mode: "cors", // Asegura el modo CORS
+      mode: "cors",
       body: JSON.stringify(payload),
     });
 
     const data = await res.json();
-    const feedback = data.output;
-
-    // Reemplazar mensaje de carga con el feedback real
-    replaceLoadingMessage(loadingMessage, feedback, isAuto);
+    replaceLoadingMessage(loadingMessage, data.output, isAuto);
   } catch (err) {
-    console.error("❌ Error al obtener feedback:", err.message);
+    console.error("Error al obtener feedback:", err);
     replaceLoadingMessage(
       loadingMessage,
       languageStrings[currentLanguage].errorFeedback,
@@ -998,12 +827,8 @@ function showLoadingMessage(isAuto) {
     messageDiv.style.borderLeft = "4px solid #2196F3";
   }
 
-  // Añadir al inicio del contenedor
   feedbackContainer.insertBefore(messageDiv, feedbackContainer.firstChild);
-
-  // Scroll automático al nuevo mensaje
   feedbackContainer.scrollTop = 0;
-
   return loadingId;
 }
 
@@ -1011,12 +836,14 @@ function replaceLoadingMessage(loadingId, message, isAuto) {
   const loadingElement = document.getElementById(loadingId);
   if (!loadingElement) return;
 
-  // Crear nuevo elemento con el mensaje real
   const messageDiv = document.createElement("div");
   messageDiv.className = "feedback-message";
 
   if (isAuto) {
-    messageDiv.innerHTML = `<div class="auto-indicator">${languageStrings[currentLanguage].master}</div><div class="message-content">${message}</div>`;
+    messageDiv.innerHTML = `
+      <div class="auto-indicator">${languageStrings[currentLanguage].master}</div>
+      <div class="message-content">${message}</div>
+    `;
     messageDiv.style.borderLeft = "4px solid #4CAF50";
     speakText(message);
   } else {
@@ -1024,10 +851,8 @@ function replaceLoadingMessage(loadingId, message, isAuto) {
     messageDiv.style.borderLeft = "4px solid #2196F3";
   }
 
-  // Reemplazar el elemento de carga con el mensaje real
   loadingElement.replaceWith(messageDiv);
 
-  // Mantener máximo 5 mensajes
   const messages = feedbackContainer.querySelectorAll(
     ".feedback-message:not(.loading)"
   );
@@ -1036,72 +861,15 @@ function replaceLoadingMessage(loadingId, message, isAuto) {
   }
 }
 
-async function setupPose() {
-  // Detener instancia anterior si existe
-  if (pose) {
-    try {
-      await pose.close();
-    } catch (e) {
-      console.warn(
-        currentLanguage === "es"
-          ? "Error cerrando instancia anterior de Pose:"
-          : "Error closing previous Pose instance:",
-        e
-      );
-    }
-  }
-
-  pose = new Pose({
-    locateFile: (file) => {
-      return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`;
-    },
-  });
-
-  pose.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5,
-    useWebGL: true,
-  });
-
-  pose.onResults(onResults);
-
-  // Reiniciar cámara de MediaPipe
-  if (camera) {
-    camera.stop();
-  }
-
-  camera = new Camera(video, {
-    onFrame: async () => {
-      if (isDetectionActive) {
-        try {
-          await pose.send({ image: video });
-        } catch (err) {
-          console.error(
-            currentLanguage === "es"
-              ? "Error en detección de pose:"
-              : "Error in pose detection:",
-            err
-          );
-        }
-      }
-    },
-    width: 640,
-    height: 480,
-  });
-
-  camera.start();
-}
-
-// Función auxiliar para añadir mensajes iniciales
 function addFeedbackToHistory(message, isAuto) {
   const messageDiv = document.createElement("div");
   messageDiv.className = "feedback-message";
 
   if (isAuto) {
-    messageDiv.innerHTML = `<div class="auto-indicator">${languageStrings[currentLanguage].master}</div><div class="message-content">${message}</div>`;
+    messageDiv.innerHTML = `
+      <div class="auto-indicator">${languageStrings[currentLanguage].master}</div>
+      <div class="message-content">${message}</div>
+    `;
     messageDiv.style.borderLeft = "4px solid #4CAF50";
   } else {
     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
@@ -1111,60 +879,14 @@ function addFeedbackToHistory(message, isAuto) {
   feedbackContainer.appendChild(messageDiv);
 }
 
-// Mensaje inicial
-addFeedbackToHistory(languageStrings[currentLanguage].welcome, false);
-
 function speakText(text) {
-  if (!text || !window.speechSynthesis) return;
-
-  // Verificar si el usuario ya interactuó
-  if (!window.userInteracted) {
-    console.warn("Audio bloqueado: esperando interacción del usuario");
-    return;
-  }
-
-  // Agregar a la cola
+  if (!text || !window.speechSynthesis || !window.userInteracted) return;
   speechQueue.push(text);
-
-  // Reproducir si no hay nada en curso
-  if (!isSpeaking) {
-    processSpeechQueue();
-  }
+  if (!isSpeaking) processSpeechQueue();
 }
-
-// Añade este evento al inicio de tu script
-document.addEventListener("click", () => {
-  if (!window.userInteracted) {
-    window.userInteracted = true;
-    console.log("Interacción del usuario registrada - audio desbloqueado");
-
-    // Intenta reproducir un sonido de prueba
-    const utterance = new SpeechSynthesisUtterance(" ");
-    speechSynthesis.speak(utterance);
-  }
-});
-
-document.getElementById("activateVoice")?.addEventListener("click", () => {
-  // Forzar la bandera de interacción
-  window.userInteracted = true;
-
-  // Probar con un mensaje corto
-  speakText(
-    currentLanguage === "es"
-      ? "Voz activada. Bienvenido al maestro de yoga virtual."
-      : "Voice activated. Welcome to the virtual yoga master."
-  );
-
-  alert(
-    currentLanguage === "es"
-      ? "Voz activada correctamente. Ahora podrás escuchar los feedbacks."
-      : "Voice successfully activated. You will now hear feedback."
-  );
-});
 
 function processSpeechQueue() {
   if (speechQueue.length === 0 || isSpeaking) return;
-
   isSpeaking = true;
   const text = speechQueue.shift();
 
@@ -1180,9 +902,7 @@ function processSpeechQueue() {
       .find(
         (voice) => voice.lang.includes("es") && voice.name.includes("Natural")
       );
-    if (spanishVoice) {
-      currentUtterance.voice = spanishVoice;
-    }
+    if (spanishVoice) currentUtterance.voice = spanishVoice;
   }
 
   currentUtterance.onend = () => {
@@ -1193,83 +913,187 @@ function processSpeechQueue() {
   speechSynthesis.speak(currentUtterance);
 }
 
-// Inicializar elementos de puntuación
+async function setupPose() {
+  if (pose) {
+    try {
+      await pose.close();
+    } catch (e) {
+      console.warn("Error cerrando instancia anterior de Pose:", e);
+    }
+  }
+
+  pose = new Pose({
+    locateFile: (file) =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
+  });
+
+  pose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+    useWebGL: true,
+  });
+
+  pose.onResults(onResults);
+
+  if (camera) camera.stop();
+  camera = new Camera(video, {
+    onFrame: async () => {
+      if (isDetectionActive) {
+        try {
+          await pose.send({ image: video });
+        } catch (err) {
+          console.error("Error en detección de pose:", err);
+        }
+      }
+    },
+    width: 640,
+    height: 480,
+  });
+
+  camera.start();
+}
+
+// ================= INICIALIZACIÓN =================
+
 document.addEventListener("DOMContentLoaded", () => {
+  initParticles();
+  setLanguage("es");
+
   userScoreElement = document.getElementById("userScore");
   targetScoreElement = document.getElementById("targetScore");
-
-  debugLog("Elementos de puntuación:", {
-    userScore: userScoreElement,
-    targetScore: targetScoreElement,
-  });
-
-  if (!userScoreElement) {
-    console.error("Elemento #userScore no encontrado en el DOM");
-  }
-
-  if (!targetScoreElement) {
-    console.error("Elemento #targetScore no encontrado en el DOM");
-  } else {
-    targetScoreElement.textContent = "5.0";
-  }
-
-  // Inicializar puntuación
+  targetScoreElement.textContent = "5.0";
   updateUserScore(0);
-  debugLog("Puntuación inicializada a 0.0");
-});
 
-// Inicializar idioma y referencia
-setLanguage("es");
-debugLog("Aplicación inicializada. Modo depuración activado");
+  // Event listeners
+  activateVoiceBtn.addEventListener("click", toggleVoice);
 
-// Definir conexiones POSE si no están disponibles
-if (!window.POSE_CONNECTIONS) {
-  window.POSE_CONNECTIONS = [
-    [0, 1],
-    [1, 2],
-    [2, 3],
-    [3, 7],
-    [0, 4],
-    [4, 5],
-    [5, 6],
-    [6, 8],
-    [9, 10],
-    [11, 12],
-    [11, 13],
-    [13, 15],
-    [15, 17],
-    [15, 19],
-    [15, 21],
-    [17, 19],
-    [12, 14],
-    [14, 16],
-    [16, 18],
-    [16, 20],
-    [16, 22],
-    [18, 20],
-    [11, 23],
-    [12, 24],
-    [23, 24],
-    [23, 25],
-    [24, 26],
-    [25, 27],
-    [26, 28],
-    [27, 29],
-    [28, 30],
-    [29, 31],
-    [30, 32],
-    [27, 31],
-    [28, 32],
-  ];
-}
-
-function logAvailableVoices() {
-  const voices = speechSynthesis.getVoices();
-  console.log("Voces disponibles:");
-  voices.forEach((voice) => {
-    console.log(`- ${voice.name} (${voice.lang})`);
+  languageToggle.addEventListener("click", () => {
+    const newLang = currentLanguage === "es" ? "en" : "es";
+    setLanguage(newLang);
   });
-}
 
-// Ejecutar después de cargar las voces
-speechSynthesis.onvoiceschanged = logAvailableVoices;
+  startBtn.addEventListener("click", async () => {
+    try {
+      if (isDetectionActive) stopDetection();
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+      });
+
+      video.srcObject = stream;
+      startBtn.disabled = true;
+      startBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 10L19 7V17L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+      </svg><span>${languageStrings[currentLanguage].restartCamera}</span>`;
+
+      video.onloadedmetadata = () => {
+        setupCanvas();
+        toggleDetectBtn.disabled = false;
+        toggleDetectBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg><span>${languageStrings[currentLanguage].startDetection}</span>`;
+      };
+    } catch (err) {
+      alert(
+        currentLanguage === "es"
+          ? "No se pudo acceder a la cámara: " + err.message
+          : "Could not access camera: " + err.message
+      );
+    }
+  });
+
+  toggleDetectBtn.addEventListener("click", () => {
+    if (!isDetectionActive) {
+      setupPose();
+      isDetectionActive = true;
+      toggleDetectBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg><span>${languageStrings[currentLanguage].stopDetection}</span>`;
+      poseResult.textContent = languageStrings[currentLanguage].detecting;
+      toggleDetectBtn.classList.add("active");
+    } else {
+      stopDetection();
+    }
+  });
+
+  // Mensaje de bienvenida
+  addFeedbackToHistory(languageStrings[currentLanguage].welcome, false);
+
+  // Definir conexiones POSE si no están disponibles
+  if (!window.POSE_CONNECTIONS) {
+    window.POSE_CONNECTIONS = [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 7],
+      [0, 4],
+      [4, 5],
+      [5, 6],
+      [6, 8],
+      [9, 10],
+      [11, 12],
+      [11, 13],
+      [13, 15],
+      [15, 17],
+      [15, 19],
+      [15, 21],
+      [17, 19],
+      [12, 14],
+      [14, 16],
+      [16, 18],
+      [16, 20],
+      [16, 22],
+      [18, 20],
+      [11, 23],
+      [12, 24],
+      [23, 24],
+      [23, 25],
+      [24, 26],
+      [25, 27],
+      [26, 28],
+      [27, 29],
+      [28, 30],
+      [29, 31],
+      [30, 32],
+      [27, 31],
+      [28, 32],
+    ];
+  }
+
+  // Función para registrar las voces disponibles (debug)
+  function logAvailableVoices() {
+    const voices = speechSynthesis.getVoices();
+    console.log("Voces disponibles:");
+    voices.forEach((voice) => {
+      console.log(`- ${voice.name} (${voice.lang})`);
+    });
+  }
+
+  // Registrar cuando las voces cambien
+  speechSynthesis.onvoiceschanged = logAvailableVoices;
+
+  // Forzar interacción de usuario para audio
+  document.addEventListener("click", () => {
+    if (!window.userInteracted) {
+      window.userInteracted = true;
+      console.log("Interacción del usuario registrada - audio desbloqueado");
+
+      // Probar con un sonido breve
+      const utterance = new SpeechSynthesisUtterance(" ");
+      speechSynthesis.speak(utterance);
+    }
+  });
+});
