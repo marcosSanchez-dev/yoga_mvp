@@ -18,7 +18,58 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: -1;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particles-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at center,
+    rgba(78, 205, 196, 0.1) 0%,
+    transparent 70%
+  );
+  opacity: 0.3;
+  animation: pulse 8s infinite alternate;
+}
+
+.score-particle {
+  position: absolute;
+  border-radius: 50%;
+  animation: float linear infinite, fadeout linear forwards;
+  pointer-events: none;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0) translateX(0);
+  }
+  100% {
+    transform: translateY(var(--end-bottom, -100px))
+      translateX(var(--horizontal-move, 0));
+  }
+}
+
+@keyframes fadeout {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 0.5;
+  }
 }
 
 h1 {
@@ -419,13 +470,4 @@ video:hover,
     flex-direction: column;
     gap: 15px;
   }
-}
-
-#particles-bg {
-  z-index: 0; /* Cambiar de -1 a 0 */
-}
-
-.app-container {
-  position: relative;
-  z-index: 1; /* Asegurar que el contenido esté sobre el fondo */
 }

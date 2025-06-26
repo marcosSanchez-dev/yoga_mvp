@@ -1,105 +1,73 @@
-// Configuración inicial de Three.js para el fondo de partículas
-let particlesScene, particlesCamera, particlesRenderer, particles;
+// Configuración de partículas CSS
+let particlesInterval;
 
 function initParticles() {
-  // Verificar si Three.js está disponible
-  if (typeof THREE === "undefined") {
-    console.error("Three.js no está disponible");
-    return;
-  }
+  const container = document.getElementById("particles-bg");
+  container.innerHTML = '<div class="particles-overlay"></div>';
 
-  // 1. Configuración de escena, cámara y renderizador
-  particlesScene = new THREE.Scene();
-  particlesCamera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
+  // Limpiar intervalo existente
+  if (particlesInterval) clearInterval(particlesInterval);
 
-  particlesRenderer = new THREE.WebGLRenderer({
-    alpha: true,
-    antialias: true,
-  });
+  // Crear partículas iniciales
+  createScoreParticles(lastScore);
 
-  particlesRenderer.setSize(window.innerWidth, window.innerHeight);
-  particlesRenderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
-  document
-    .getElementById("particles-bg")
-    .appendChild(particlesRenderer.domElement);
-
-  // 2. Crear geometría y material mejorados
-  const particleGeometry = new THREE.BufferGeometry();
-  const count = 2000;
-  const positions = new Float32Array(count * 3);
-
-  for (let i = 0; i < count * 3; i++) {
-    positions[i] = (Math.random() - 0.5) * 50;
-  }
-
-  particleGeometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(positions, 3)
-  );
-
-  const particleMaterial = new THREE.PointsMaterial({
-    color: 0x4ecdc4,
-    size: 0.25,
-    transparent: true,
-    opacity: 0.8,
-    sizeAttenuation: true,
-  });
-
-  // 3. Crear sistema de partículas
-  particles = new THREE.Points(particleGeometry, particleMaterial);
-  particlesScene.add(particles);
-
-  // 4. Posicionar cámara correctamente
-  particlesCamera.position.z = 30;
-  particlesCamera.position.y = 5;
-
-  // 5. Añadir efectos de movimiento
-  const clock = new THREE.Clock();
-
-  function animateParticles() {
-    requestAnimationFrame(animateParticles);
-
-    const elapsedTime = clock.getElapsedTime();
-
-    // Animación suave
-    particles.rotation.y = elapsedTime * 0.1;
-
-    particlesRenderer.render(particlesScene, particlesCamera);
-  }
-
-  animateParticles();
-
-  // 6. Manejo de redimensionamiento
-  window.addEventListener("resize", () => {
-    particlesCamera.aspect = window.innerWidth / window.innerHeight;
-    particlesCamera.updateProjectionMatrix();
-    particlesRenderer.setSize(window.innerWidth, window.innerHeight);
-  });
+  // Actualizar partículas cada segundo
+  particlesInterval = setInterval(() => {
+    createScoreParticles(lastScore);
+  }, 1000);
 }
 
-function animateParticles() {
-  requestAnimationFrame(animateParticles);
+function createScoreParticles(score) {
+  const container = document.getElementById("particles-bg");
 
-  if (!particles) return;
-
-  particles.children.forEach((particle) => {
-    particle.position.add(particle.userData.velocity);
-
-    // Rebotar en los límites imaginarios
-    if (Math.abs(particle.position.x) > 10) particle.userData.velocity.x *= -1;
-    if (Math.abs(particle.position.y) > 10) particle.userData.velocity.y *= -1;
-    if (Math.abs(particle.position.z) > 10) particle.userData.velocity.z *= -1;
+  // Limpiar partículas antiguas (excepto el overlay)
+  const particles = container.querySelectorAll(".score-particle");
+  particles.forEach((p) => {
+    if (Date.now() - parseInt(p.dataset.created) > 3000) {
+      p.remove();
+    }
   });
 
-  particles.rotation.x += 0.0005;
-  particles.rotation.y += 0.001;
+  // Crear nuevas partículas basadas en el score
+  const particleCount = Math.min(30, Math.floor(score * 6));
+  const colors =
+    score > 3.5
+      ? ["#4CAF50", "#8BC34A", "#CDDC39"]
+      : score > 2
+      ? ["#FFC107", "#FF9800"]
+      : ["#F44336", "#E91E63"];
 
-  particlesRenderer.render(particlesScene, particlesCamera);
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement("div");
+    particle.className = "score-particle";
+
+    // Tamaño y posición aleatorios
+    const size = Math.random() * 15 + 5;
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+    particle.style.left = `${Math.random() * 100}%`;
+    particle.style.bottom = `-${size}px`;
+
+    // Color basado en puntuación
+    particle.style.backgroundColor =
+      colors[Math.floor(Math.random() * colors.length)];
+    particle.style.opacity = 0.3 + Math.random() * 0.4;
+
+    // Animación personalizada por puntuación
+    const duration = 5 + score * 2 + Math.random() * 5;
+    const horizontal = (Math.random() - 0.5) * 100;
+
+    particle.style.animation = `
+      float ${duration}s linear infinite,
+      fadeout ${duration}s ease-out forwards
+    `;
+
+    particle.style.setProperty("--end-bottom", `${100 + size}px`);
+    particle.style.setProperty("--horizontal-move", `${horizontal}px`);
+
+    particle.dataset.created = Date.now();
+    container.appendChild(particle);
+  }
 }
 
 // Variables globales
@@ -724,9 +692,12 @@ function highlightProblemAreas(errors) {
 
 function updateUserScore(score) {
   if (!userScoreElement) return;
+
+  // Actualizar puntuación
   userScoreElement.textContent = score.toFixed(1);
   userScoreElement.classList.add("score-change");
 
+  // Actualizar color basado en puntuación
   if (score >= 4.0) {
     userScoreElement.style.color = "#4CAF50";
   } else if (score >= 2.0) {
@@ -734,6 +705,9 @@ function updateUserScore(score) {
   } else {
     userScoreElement.style.color = "#F44336";
   }
+
+  // Actualizar partículas basado en la puntuación
+  createScoreParticles(score);
 
   setTimeout(() => {
     userScoreElement.classList.remove("score-change");
