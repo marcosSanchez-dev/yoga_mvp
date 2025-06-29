@@ -1,7 +1,7 @@
 {
   "name": "yoga-mvp",
   "version": "1.0.0",
-  "description": "",
+  "description": "Virtual Yoga Master with immersive 3D background",
   "main": "openai-proxy.js",
   "scripts": {
     "start": "node openai-proxy.js",
@@ -11,7 +11,12 @@
     "type": "git",
     "url": "git+https://github.com/marcosSanchez-dev/yoga_mvp.git"
   },
-  "keywords": [],
+  "keywords": [
+    "yoga",
+    "pose-detection",
+    "threejs",
+    "immersive"
+  ],
   "author": "",
   "license": "ISC",
   "type": "module",
@@ -23,6 +28,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.18.3",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "three": "^0.132.2"
   }
 }

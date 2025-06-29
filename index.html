@@ -7,72 +7,230 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <h1>🧘 Maestro de Yoga Virtual</h1>
+    <div id="particles-bg"></div>
 
-    <!-- Botón de cambio de idioma -->
-    <div class="language-toggle">
-      <button id="languageToggle">English</button>
-    </div>
+    <div class="app-container">
+      <!-- Cabecera -->
+      <button id="languageToggle">
+        <span class="full-text">Español</span>
+        <span class="short-text">ES</span>
+      </button>
 
-    <!-- Contenedor para cámara y referencia -->
-    <div class="camera-reference-container">
-      <div class="camera-box">
-        <video id="videoElement" autoplay playsinline muted></video>
-        <div class="camera-label">TU POSTURA</div>
-      </div>
+      <!-- Nuevo botón de instrucciones -->
+      <button id="instructionsBtn" class="instruction-btn">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M12 16V12"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M12 8H12.01"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
 
-      <div class="reference-box">
-        <div id="referenceTitle">Pose Objetivo: Brazos Arriba</div>
-        <div id="referenceLoading" class="reference-loading">
-          Analizando pose de referencia...
+      <h1>🧘 Maestro de Yoga Virtual</h1>
+
+      <!-- Panel principal -->
+      <div class="glass-panel">
+        <!-- Contenedor cámara y referencia -->
+        <div class="camera-reference-container">
+          <div class="camera-box">
+            <video id="videoElement" autoplay playsinline muted></video>
+            <div class="camera-label">TU POSTURA</div>
+          </div>
+
+          <div class="reference-box">
+            <div id="referenceTitle">Pose Objetivo: Brazos Arriba</div>
+            <div id="referenceLoading" class="reference-loading">
+              Analizando pose de referencia...
+            </div>
+            <img
+              id="poseReference"
+              style="display: none"
+              alt="Pose de referencia"
+            />
+          </div>
         </div>
-        <img
-          id="poseReference"
-          style="display: none"
-          alt="Pose de referencia"
-        />
+
+        <!-- Puntuaciones -->
+        <div class="score-container">
+          <div class="score-box">
+            <div class="score-label" id="yourScoreLabel">Tu calificación</div>
+            <div id="userScore">0.0</div>
+          </div>
+          <div class="score-box">
+            <div class="score-label" id="targetScoreLabel">Objetivo</div>
+            <div id="targetScore">5.0</div>
+          </div>
+        </div>
+
+        <!-- Estado de detección -->
+        <div id="poseResult">Esperando inicio de detección...</div>
+      </div>
+
+      <div class="similarity-container">
+        <div class="similarity-header">
+          <span>SIMILITUD</span>
+          <span id="similarityValue">0%</span>
+        </div>
+        <div class="similarity-bar">
+          <div class="similarity-fill" id="similarityFill"></div>
+        </div>
+      </div>
+
+      <!-- Controles -->
+      <div class="controls">
+        <button id="startBtn" class="control-btn">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M15 10L19 7V17L15 14"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <rect
+              x="3"
+              y="6"
+              width="12"
+              height="12"
+              rx="2"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+          </svg>
+          <span>Iniciar Cámara</span>
+        </button>
+
+        <button id="toggleDetectBtn" class="control-btn" disabled>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M12 6V12L16 14"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>Iniciar Detección</span>
+        </button>
+
+        <button id="activateVoice" class="control-btn">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 3V19M8 8V16M16 6V18M20 9V15M4 9V15"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span>Activar Voz</span>
+        </button>
+      </div>
+
+      <!-- Panel de feedback -->
+      <div id="feedbackContainer" class="feedback-panel">
+        <div class="feedback-message">
+          <div class="message-content">
+            Bienvenido al Maestro de Yoga Virtual. Mantén la pose mientras
+            analizo tu postura en tiempo real.
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Barra de similitud -->
-    <!-- <div class="similarity-container">
-      <div class="similarity-labels">
-        <span>${languageStrings[currentLanguage].referenceScore}</span>
-        <span id="similarityText">0%</span>
-        <span>${languageStrings[currentLanguage].yourScore}</span>
+    <!-- Popup de instrucciones -->
+    <div id="instructionsPopup" class="instructions-popup">
+      <div class="popup-content">
+        <h2>Instrucciones de Uso</h2>
+        <ol>
+          <li>
+            <strong>Iniciar cámara:</strong> Haz clic en "Iniciar Cámara" y
+            permite el acceso a la cámara. Asegúrate de que puedas verte en el
+            cuadro de video.
+          </li>
+          <li>
+            <strong>Activar voz (opcional):</strong> Haz clic en "Activar Voz"
+            si deseas recibir retroalimentación auditiva. Escucharás una
+            confirmación cuando se active.
+          </li>
+          <li>
+            <strong>Comenzar detección:</strong> Haz clic en "Iniciar Detección"
+            para que el sistema comience a analizar tu postura.
+          </li>
+          <li>
+            <strong>Objetivo:</strong> Mantén la pose de brazos arriba lo más
+            similar a la referencia posible para alcanzar una calificación de
+            5.0.
+          </li>
+          <li>
+            <strong>Consejo:</strong> Trata de mantener tu postura estable
+            durante varios segundos para obtener mejores resultados.
+          </li>
+        </ol>
+        <div class="credits">
+          <p>
+            Aplicación desarrollada por
+            <a
+              href="https://www.linkedin.com/in/marcos-web-dev/"
+              target="_blank"
+              >Marcos Sánchez</a
+            >
+          </p>
+        </div>
+        <button id="closePopup">Entendido</button>
       </div>
-      <div id="similarityBar" class="similarity-bar">
-        <div id="similarityFill" class="similarity-fill"></div>
-      </div>
-    </div> -->
-
-    <div class="score-container">
-      <div class="score-box">
-        <div class="score-label" id="yourScoreLabel">Tu calificación</div>
-        <div id="userScore">0.0</div>
-      </div>
-      <div class="score-box">
-        <div class="score-label" id="targetScoreLabel">Objetivo</div>
-        <div id="targetScore">5.0</div>
-      </div>
-    </div>
-
-    <div class="controls">
-      <button id="startBtn">Iniciar Cámara</button>
-      <button id="toggleDetectBtn" disabled>Iniciar Detección</button>
-      <button id="toggleReferenceBtn">Ocultar Referencia</button>
-      <button id="activateVoice">Activar Voz</button>
-    </div>
-
-    <div id="poseResult">Esperando...</div>
-    <div id="feedbackContainer">
-      <div class="feedback-message">Retroalimentación aparecerá aquí...</div>
     </div>
 
     <!-- MediaPipe scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
     <script type="module" src="script.js"></script>
   </body>
 </html>
