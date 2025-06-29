@@ -228,15 +228,14 @@ function setLanguage(lang) {
   currentLanguage = lang;
   const strings = languageStrings[lang];
 
-  // Actualizar UI
   languageToggle.querySelector(".full-text").textContent =
     strings.languageBtnFull;
   languageToggle.querySelector(".short-text").textContent =
     strings.languageBtnShort;
+
   document.querySelector("h1").textContent =
     lang === "es" ? "🧘 Maestro de Yoga Virtual" : "🧘 Virtual Yoga Master";
 
-  // Actualizar botones
   startBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M15 10L19 7V17L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
@@ -253,7 +252,6 @@ function setLanguage(lang) {
     <path d="M12 3V19M8 8V16M16 6V18M20 9V15M4 9V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
   </svg><span>${isVoiceActive ? strings.voiceOff : strings.voiceOn}</span>`;
 
-  // Actualizar otros textos
   document.getElementById("referenceTitle").textContent =
     strings.referenceTitle;
   document.getElementById("yourScoreLabel").textContent =
@@ -261,9 +259,37 @@ function setLanguage(lang) {
   document.getElementById("targetScoreLabel").textContent =
     strings.targetScoreLabel;
 
-  // Actualizar feedback existente
   updateFeedbackContainerLanguage();
   loadReferenceImage();
+
+  // ✅ Traducción del popup de instrucciones
+  if (lang === "en") {
+    document.querySelector(".popup-content h2").textContent =
+      "Usage Instructions";
+    document.querySelector(".popup-content ol").innerHTML = `
+      <li><strong>Start camera:</strong> Click "Start Camera" and allow access. Make sure you can see yourself in the video frame.</li>
+      <li><strong>Activate voice (optional):</strong> Click "Activate Voice" if you want audio feedback. You will hear a confirmation when activated.</li>
+      <li><strong>Start detection:</strong> Click "Start Detection" for the system to begin analyzing your posture.</li>
+      <li><strong>Goal:</strong> Maintain the arms-up pose as similar as possible to the reference to reach a score of 5.0.</li>
+      <li><strong>Tip:</strong> Try to maintain a stable posture for several seconds for better results.</li>
+    `;
+    document.querySelector(".credits p").innerHTML =
+      'Application developed by <a href="https://www.linkedin.com/in/marcos-web-dev/" target="_blank">Marcos Sánchez</a>';
+    document.getElementById("closePopup").textContent = "Got it";
+  } else {
+    document.querySelector(".popup-content h2").textContent =
+      "Instrucciones de Uso";
+    document.querySelector(".popup-content ol").innerHTML = `
+      <li><strong>Iniciar cámara:</strong> Haz clic en "Iniciar Cámara" y permite el acceso a la cámara. Asegúrate de que puedas verte en el cuadro de video.</li>
+      <li><strong>Activar voz (opcional):</strong> Haz clic en "Activar Voz" si deseas recibir retroalimentación auditiva. Escucharás una confirmación cuando se active.</li>
+      <li><strong>Comenzar detección:</strong> Haz clic en "Iniciar Detección" para que el sistema comience a analizar tu postura.</li>
+      <li><strong>Objetivo:</strong> Mantén la pose de brazos arriba lo más similar a la referencia posible para alcanzar una calificación de 5.0.</li>
+      <li><strong>Consejo:</strong> Trata de mantener tu postura estable durante varios segundos para obtener mejores resultados.</li>
+    `;
+    document.querySelector(".credits p").innerHTML =
+      'Aplicación desarrollada por <a href="https://www.linkedin.com/in/marcos-web-dev/" target="_blank">Marcos Sánchez</a>';
+    document.getElementById("closePopup").textContent = "Entendido";
+  }
 }
 
 function setupCanvas() {
@@ -940,7 +966,6 @@ async function setupPose() {
 }
 
 // ================= INICIALIZACIÓN =================
-
 document.addEventListener("DOMContentLoaded", () => {
   initParticles();
   setLanguage("es");
@@ -950,7 +975,34 @@ document.addEventListener("DOMContentLoaded", () => {
   targetScoreElement.textContent = "5.0";
   updateUserScore(0);
 
-  // Event listeners
+  // === POPUP DE INSTRUCCIONES ===
+  const instructionsBtn = document.getElementById("instructionsBtn");
+  const instructionsPopup = document.getElementById("instructionsPopup");
+  const closePopup = document.getElementById("closePopup");
+
+  instructionsBtn.addEventListener("click", () => {
+    instructionsPopup.classList.add("active");
+  });
+
+  closePopup.addEventListener("click", () => {
+    instructionsPopup.classList.remove("active");
+  });
+
+  instructionsPopup.addEventListener("click", (e) => {
+    if (e.target === instructionsPopup) {
+      instructionsPopup.classList.remove("active");
+    }
+  });
+
+  let firstVisit = localStorage.getItem("firstVisit");
+  if (!firstVisit) {
+    setTimeout(() => {
+      instructionsPopup.classList.add("active");
+      localStorage.setItem("firstVisit", "true");
+    }, 2000);
+  }
+
+  // === EVENTOS DE BOTONES ===
   activateVoiceBtn.addEventListener("click", toggleVoice);
 
   languageToggle.addEventListener("click", () => {
@@ -1015,7 +1067,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Mensaje de bienvenida
   addFeedbackToHistory(languageStrings[currentLanguage].welcome, false);
 
-  // Definir conexiones POSE si no están disponibles
   if (!window.POSE_CONNECTIONS) {
     window.POSE_CONNECTIONS = [
       [0, 1],
@@ -1056,25 +1107,15 @@ document.addEventListener("DOMContentLoaded", () => {
     ];
   }
 
-  // Función para registrar las voces disponibles (debug)
-  function logAvailableVoices() {
+  speechSynthesis.onvoiceschanged = () => {
     const voices = speechSynthesis.getVoices();
     console.log("Voces disponibles:");
-    voices.forEach((voice) => {
-      console.log(`- ${voice.name} (${voice.lang})`);
-    });
-  }
+    voices.forEach((v) => console.log(`- ${v.name} (${v.lang})`));
+  };
 
-  // Registrar cuando las voces cambien
-  speechSynthesis.onvoiceschanged = logAvailableVoices;
-
-  // Forzar interacción de usuario para audio
   document.addEventListener("click", () => {
     if (!window.userInteracted) {
       window.userInteracted = true;
-      console.log("Interacción del usuario registrada - audio desbloqueado");
-
-      // Probar con un sonido breve
       const utterance = new SpeechSynthesisUtterance(" ");
       speechSynthesis.speak(utterance);
     }

@@ -15,6 +15,40 @@
         <span class="full-text">Español</span>
         <span class="short-text">ES</span>
       </button>
+
+      <!-- Nuevo botón de instrucciones -->
+      <button id="instructionsBtn" class="instruction-btn">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M12 16V12"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M12 8H12.01"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+
       <h1>🧘 Maestro de Yoga Virtual</h1>
 
       <!-- Panel principal -->
@@ -149,11 +183,53 @@
       </div>
     </div>
 
+    <!-- Popup de instrucciones -->
+    <div id="instructionsPopup" class="instructions-popup">
+      <div class="popup-content">
+        <h2>Instrucciones de Uso</h2>
+        <ol>
+          <li>
+            <strong>Iniciar cámara:</strong> Haz clic en "Iniciar Cámara" y
+            permite el acceso a la cámara. Asegúrate de que puedas verte en el
+            cuadro de video.
+          </li>
+          <li>
+            <strong>Activar voz (opcional):</strong> Haz clic en "Activar Voz"
+            si deseas recibir retroalimentación auditiva. Escucharás una
+            confirmación cuando se active.
+          </li>
+          <li>
+            <strong>Comenzar detección:</strong> Haz clic en "Iniciar Detección"
+            para que el sistema comience a analizar tu postura.
+          </li>
+          <li>
+            <strong>Objetivo:</strong> Mantén la pose de brazos arriba lo más
+            similar a la referencia posible para alcanzar una calificación de
+            5.0.
+          </li>
+          <li>
+            <strong>Consejo:</strong> Trata de mantener tu postura estable
+            durante varios segundos para obtener mejores resultados.
+          </li>
+        </ol>
+        <div class="credits">
+          <p>
+            Aplicación desarrollada por
+            <a
+              href="https://www.linkedin.com/in/marcos-web-dev/"
+              target="_blank"
+              >Marcos Sánchez</a
+            >
+          </p>
+        </div>
+        <button id="closePopup">Entendido</button>
+      </div>
+    </div>
+
     <!-- MediaPipe scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-    <!-- Mover el script de Three.js antes de script.js y quitar async -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
     <script type="module" src="script.js"></script>
   </body>
