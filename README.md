@@ -1,84 +1,111 @@
-🧘 Virtual Yoga Master
-🌟 Project Overview
-An immersive AI-powered yoga experience that transforms your practice with real-time pose analysis, voice coaching, and ambient lighting control. This application uses computer vision to track your body movements and provides instant feedback like a professional yoga instructor. The integration with lighting systems via OSC/Madmapper creates a fully immersive environment that responds to your poses in real-time.
+# 🧘 Virtual Yoga Master
 
-Technical Implementation: The system captures video from the user's webcam and processes frames with MediaPipe Pose, detecting 33 key body points. When the user holds a pose, the app sends pose data and a snapshot to GPT-4 Turbo with Vision for expert analysis. The AI provides personalized feedback that appears on screen and is delivered through ElevenLabs' professional voice synthesis. For immersive experiences, the system sends OSC commands to MadMapper to control lighting environments. The Node.js backend securely connects to APIs while the intuitive frontend works directly in browsers.
+## 🌟 Project Overview
 
-🚀 Key Features
-Real-time Pose Detection with MediaPipe Pose
+**Virtual Yoga Master** is an immersive AI-powered yoga experience that transforms your practice with real-time pose analysis, voice coaching, and ambient lighting control.  
+The app uses computer vision to track your body movements and provides instant feedback like a professional yoga instructor.  
+It also integrates with lighting systems (via OSC/MadMapper) to create a fully immersive environment that responds to your poses in real-time.
 
-AI-Powered Feedback from GPT-4 Vision
+### 🔧 Technical Implementation
 
-Professional Voice Guidance via ElevenLabs
+- Captures video from the user's webcam.
+- Processes frames using **MediaPipe Pose**, detecting 33 body landmarks.
+- Sends pose data and snapshots to **GPT-4 Turbo with Vision** for expert analysis.
+- Provides real-time feedback on screen and via **ElevenLabs** voice synthesis.
+- Sends **OSC** commands to **MadMapper** to trigger responsive lighting.
+- Uses a **Node.js + Express** backend to securely connect with APIs.
+- Frontend runs directly in the browser for ease of use.
 
-Immersive Lighting Control via OSC/Madmapper
+---
 
-Interactive Feedback History
+## 🚀 Key Features
 
-Performance Scoring System
+- ✅ Real-time Pose Detection (MediaPipe Pose)  
+- 🧠 AI-Powered Feedback (GPT-4 Turbo Vision)  
+- 🎙️ Professional Voice Guidance (ElevenLabs)  
+- 💡 Immersive Lighting Control (OSC / MadMapper)  
+- 📈 Interactive Feedback History  
+- 🏅 Performance Scoring System  
+- 🌐 Multi-language Support (English / Spanish)  
+- ✨ Particle Visualization Effects  
 
-Multi-language Support (English/Spanish)
+---
 
-Particle Visualization Effects
+## 💻 Tech Stack
 
-💻 Tech Stack
-Frontend: HTML5, CSS3, JavaScript
+| Layer          | Technologies                           |
+| -------------- | --------------------------------------- |
+| Frontend       | HTML5, CSS3, JavaScript                |
+| Computer Vision| MediaPipe Pose                         |
+| AI             | GPT-4 Turbo with Vision, ElevenLabs    |
+| Immersive Tech | OSC Protocol, MadMapper                |
+| Backend        | Node.js, Express                       |
+| APIs           | OpenAI API, ElevenLabs API             |
 
-Computer Vision: MediaPipe Pose
+---
 
-AI: GPT-4 Turbo with Vision, ElevenLabs Voice
+## 🌈 Immersive Experience Packages
 
-Immersive Tech: OSC Protocol, MadMapper
+| Package          | Target Audience   | Features                                         | Price       |
+|------------------|-------------------|--------------------------------------------------|-------------|
+| Home Studio      | Home Users        | Basic lighting control, Voice feedback           | $99         |
+| Pro Instructor   | Yoga Studios      | Advanced lighting profiles, Class management     | $499        |
+| Premium Wellness | Spas / Retreats   | Custom environments, Multi-user support          | $1,499      |
+| Event Edition    | Event Planners    | Temporary licenses, Quick setup                  | $299/day    |
 
-Backend: Node.js, Express
+---
 
-APIs: ElevenLabs API, OpenAI API
+## 🏃‍♂️ Quick Start
 
-🌈 Immersive Experience Packages
-Package	Target Audience	Features	Price
-Home Studio	Home Users	Basic lighting control, Voice feedback	$99
-Pro Instructor	Yoga Studios	Advanced lighting profiles, Class management	$499
-Premium Wellness	Spas/Retreats	Custom environments, Multi-user support	$1,499
-Event Edition	Event Planners	Temporary licenses, Quick setup	$299/day
-🏃‍♂️ Quick Start
-Prerequisites
-ElevenLabs API Key (free tier available)
+### ✅ Prerequisites
 
-OpenAI API Key
+- ElevenLabs API Key (Free tier available)  
+- OpenAI API Key  
+- MadMapper (for lighting control)
 
-MadMapper (for lighting control)
+### ⚙️ Setup Instructions
 
-Clone repo:
+1. **Clone the repo:**
 
-bash
-git clone https://github.com/marcosSanchez-dev/yoga_mvp.git
+   ```bash
+   git clone https://github.com/marcosSanchez-dev/yoga_mvp.git
 Install dependencies:
 
 bash
+Copiar
+Editar
 npm install
-Add API keys to .env:
+Add your API keys to .env:
 
 env
+Copiar
+Editar
 OPENAI_API_KEY=your_openai_key_here
 ELEVENLABS_API_KEY=your_elevenlabs_key_here
 Start the server:
 
 bash
+Copiar
+Editar
 npm start
 Open index.html in your browser
 
-Connecting to MadMapper
-Ensure MadMapper is running on your network
+🔌 Connecting to MadMapper
+Ensure MadMapper is running on the same network.
 
-Update IP in script.js:
+In script.js, update the IP address:
 
 javascript
-// Update with MadMapper machine's IP
-const MADMAPPER_IP = "192.168.1.100"; 
-The system will automatically send OSC commands when poses are detected
+Copiar
+Editar
+// Update with your MadMapper machine's IP
+const MADMAPPER_IP = "192.168.1.100";
+The system will send OSC commands automatically when poses are detected.
 
 📂 Project Structure
-text
+csharp
+Copiar
+Editar
 virtual-yoga-master/
 ├── public/               # Frontend files
 │   ├── assets/           # Reference images
@@ -90,15 +117,15 @@ virtual-yoga-master/
 ├── .env.example          # Environment template
 ├── package.json          # Dependencies
 └── README.md             # Project documentation
-🌟 Business Opportunities
-This platform enables multiple revenue streams:
+💼 Business Opportunities
+This platform opens the door to multiple revenue streams:
 
 SaaS Licensing: Monthly subscriptions for studios
 
 Hardware Bundles: Partner with LED manufacturers
 
-Event Packages: Premium pricing for special events
+Event Packages: Premium pricing for events and retreats
 
-Content Marketplace: Sell specialized yoga/lighting profiles
+Content Marketplace: Sell yoga routines and lighting presets
 
-Corporate Wellness: B2B solutions for workplaces
+Corporate Wellness: Custom B2B solutions for remote teams
