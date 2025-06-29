@@ -219,7 +219,11 @@ function toggleVoice() {
     speakText(languageStrings[currentLanguage].voiceOn);
   } else {
     activateVoiceBtn.classList.remove("voice-active");
-    speechSynthesis.cancel();
+    // Cancelar cualquier audio en reproducción
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
     speakText(languageStrings[currentLanguage].voiceOff);
   }
 }
@@ -888,38 +892,82 @@ function addFeedbackToHistory(message, isAuto) {
   feedbackContainer.appendChild(messageDiv);
 }
 
-function speakText(text) {
-  if (!text || !window.speechSynthesis || !window.userInteracted) return;
-  speechQueue.push(text);
-  if (!isSpeaking) processSpeechQueue();
-}
+// ===== INTEGRACIÓN ELEVENLABS =====
+let currentAudio = null;
 
-function processSpeechQueue() {
-  if (speechQueue.length === 0 || isSpeaking) return;
-  isSpeaking = true;
-  const text = speechQueue.shift();
+async function speakText(text) {
+  if (!isVoiceActive || !text || !window.userInteracted) return;
 
-  currentUtterance = new SpeechSynthesisUtterance(text);
-  currentUtterance.lang = currentLanguage === "es" ? "es-MX" : "en-US";
-  currentUtterance.rate = 0.9;
-  currentUtterance.pitch = 1;
-  currentUtterance.volume = 1;
-
-  if (currentLanguage === "es") {
-    const spanishVoice = speechSynthesis
-      .getVoices()
-      .find(
-        (voice) => voice.lang.includes("es") && voice.name.includes("Natural")
-      );
-    if (spanishVoice) currentUtterance.voice = spanishVoice;
+  // Cancelar cualquier audio anterior
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
   }
 
-  currentUtterance.onend = () => {
-    isSpeaking = false;
-    setTimeout(processSpeechQueue, 500);
-  };
+  try {
+    // Parámetros para voz de meditación profesional
+    const voiceSettings = {
+      stability: 0.75, // Mayor estabilidad para voz serena
+      similarity_boost: 0.9, // Claridad en la voz
+      style: 0.8, // Estilo calmado
+      use_speaker_boost: true,
+    };
 
-  speechSynthesis.speak(currentUtterance);
+    const voiceId = "pjcYQlDFKMbcOUp6F5GD"; // Voz Adam - masculina, calmada
+    // Alternativas femeninas: "EXAVITQu4vr4xnSDxMaL" (Bella) o "ThT5KcBeYPX3keUQqHPh" (Emily)
+
+    const response = await fetch(
+      "https://api.elevenlabs.io/v1/text-to-speech/" + voiceId,
+      {
+        method: "POST",
+        headers: {
+          Accept: "audio/mpeg",
+          "xi-api-key": "sk_17a56f50cd59ad18cc4b3e483723d25cbf3b508f7dd09916", // Reemplazar con tu API key real
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: "eleven_multilingual_v2",
+          voice_settings: voiceSettings,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Error en ElevenLabs: " + response.status);
+    }
+
+    const blob = await response.blob();
+    const audioUrl = URL.createObjectURL(blob);
+    currentAudio = new Audio(audioUrl);
+    currentAudio.play();
+
+    // Manejar el evento cuando termine la reproducción
+    currentAudio.onended = () => {
+      currentAudio = null;
+    };
+  } catch (error) {
+    console.error("Error con ElevenLabs:", error);
+
+    // Fallback al sintetizador del navegador
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.pitch = 0.9; // Voz ligeramente más grave
+    utterance.rate = 0.85; // Velocidad ligeramente más lenta
+    utterance.volume = 1.0;
+
+    // Buscar voz natural en el idioma actual
+    const voices = speechSynthesis.getVoices();
+    const lang = currentLanguage === "es" ? "es-ES" : "en-US";
+    const naturalVoice = voices.find(
+      (v) => v.lang === lang && v.name.includes("Natural")
+    );
+
+    if (naturalVoice) {
+      utterance.voice = naturalVoice;
+    }
+
+    speechSynthesis.speak(utterance);
+  }
 }
 
 async function setupPose() {
@@ -1106,12 +1154,6 @@ document.addEventListener("DOMContentLoaded", () => {
       [28, 32],
     ];
   }
-
-  speechSynthesis.onvoiceschanged = () => {
-    const voices = speechSynthesis.getVoices();
-    console.log("Voces disponibles:");
-    voices.forEach((v) => console.log(`- ${v.name} (${v.lang})`));
-  };
 
   document.addEventListener("click", () => {
     if (!window.userInteracted) {
