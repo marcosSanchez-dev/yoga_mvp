@@ -11,7 +11,10 @@
 
     <div class="app-container">
       <!-- Cabecera -->
-      <button id="languageToggle">ES</button>
+      <button id="languageToggle">
+        <span class="full-text">Español</span>
+        <span class="short-text">ES</span>
+      </button>
       <h1>🧘 Maestro de Yoga Virtual</h1>
 
       <!-- Panel principal -->
@@ -50,6 +53,16 @@
 
         <!-- Estado de detección -->
         <div id="poseResult">Esperando inicio de detección...</div>
+      </div>
+
+      <div class="similarity-container">
+        <div class="similarity-header">
+          <span>SIMILITUD</span>
+          <span id="similarityValue">0%</span>
+        </div>
+        <div class="similarity-bar">
+          <div class="similarity-fill" id="similarityFill"></div>
+        </div>
       </div>
 
       <!-- Controles -->

@@ -23,13 +23,13 @@ function createScoreParticles(score) {
   // Limpiar partículas antiguas (excepto el overlay)
   const particles = container.querySelectorAll(".score-particle");
   particles.forEach((p) => {
-    if (Date.now() - parseInt(p.dataset.created) > 3000) {
+    if (Date.now() - parseInt(p.dataset.created) > 5000) {
       p.remove();
     }
   });
 
   // Crear nuevas partículas basadas en el score
-  const particleCount = Math.min(30, Math.floor(score * 6));
+  const particleCount = Math.min(30, Math.floor(score * 8));
   const colors =
     score > 3.5
       ? ["#4CAF50", "#8BC34A", "#CDDC39"]
@@ -41,29 +41,32 @@ function createScoreParticles(score) {
     const particle = document.createElement("div");
     particle.className = "score-particle";
 
-    // Tamaño y posición aleatorios
-    const size = Math.random() * 15 + 5;
+    // Tamaño aleatorio
+    const size = Math.random() * 10 + 5;
     particle.style.width = `${size}px`;
     particle.style.height = `${size}px`;
-    particle.style.left = `${Math.random() * 100}%`;
-    particle.style.bottom = `-${size}px`;
+
+    // Posición inicial aleatoria en todo el viewport
+    particle.style.setProperty("--start-top", Math.random() * 100);
+    particle.style.setProperty("--start-left", Math.random() * 100);
 
     // Color basado en puntuación
     particle.style.backgroundColor =
       colors[Math.floor(Math.random() * colors.length)];
-    particle.style.opacity = 0.3 + Math.random() * 0.4;
+    const opacity = 0.5 + Math.random() * 0.5;
+    particle.style.setProperty("--start-opacity", opacity);
+
+    // Brillo
+    particle.style.boxShadow = "0 0 8px currentColor";
 
     // Animación personalizada por puntuación
-    const duration = 5 + score * 2 + Math.random() * 5;
-    const horizontal = (Math.random() - 0.5) * 100;
+    const duration = 10 + score * 4 + Math.random() * 10;
+    const moveX = (Math.random() - 0.5) * 100; // Movimiento horizontal
+    const moveY = (Math.random() - 0.5) * 100; // Movimiento vertical
 
-    particle.style.animation = `
-      float ${duration}s linear infinite,
-      fadeout ${duration}s ease-out forwards
-    `;
-
-    particle.style.setProperty("--end-bottom", `${100 + size}px`);
-    particle.style.setProperty("--horizontal-move", `${horizontal}px`);
+    particle.style.animation = `float ${duration}s linear infinite`;
+    particle.style.setProperty("--move-x", `${moveX}px`);
+    particle.style.setProperty("--move-y", `${moveY}px`);
 
     particle.dataset.created = Date.now();
     container.appendChild(particle);
@@ -141,7 +144,8 @@ const languageStrings = {
     thinking: "Observando tu pose...",
     master: "🧘‍♂️ MAESTRO",
     errorFeedback: "Error al conectar con el maestro de yoga.",
-    languageBtn: "EN",
+    languageBtnFull: "English",
+    languageBtnShort: "EN",
     hideReference: "Ocultar Referencia",
     showReference: "Mostrar Referencia",
     referenceTitle: "Pose Objetivo: Brazos Arriba",
@@ -177,9 +181,10 @@ const languageStrings = {
     stopped: "Detection stopped",
     analyzing: "🧘‍♂️ ANALYZING",
     thinking: "Observing your pose...",
-    master: "🧘‍♂️ MAESTRO",
+    master: "🧘‍♂️ MASTER",
     errorFeedback: "Error connecting to yoga master.",
-    languageBtn: "ES",
+    languageBtnFull: "Español",
+    languageBtnShort: "ES",
     hideReference: "Hide Reference",
     showReference: "Show Reference",
     referenceTitle: "Target Pose: Arms Up",
@@ -224,7 +229,10 @@ function setLanguage(lang) {
   const strings = languageStrings[lang];
 
   // Actualizar UI
-  languageToggle.textContent = strings.languageBtn;
+  languageToggle.querySelector(".full-text").textContent =
+    strings.languageBtnFull;
+  languageToggle.querySelector(".short-text").textContent =
+    strings.languageBtnShort;
   document.querySelector("h1").textContent =
     lang === "es" ? "🧘 Maestro de Yoga Virtual" : "🧘 Virtual Yoga Master";
 
@@ -652,20 +660,18 @@ function calculatePoseSimilarity(userLandmarks) {
 
 function updateSimilarityUI(similarity) {
   const similarityFill = document.getElementById("similarityFill");
-  const similarityText = document.getElementById("similarityText");
-  if (!similarityFill || !similarityText) return;
+  const similarityValue = document.getElementById("similarityValue");
+  if (!similarityFill || !similarityValue) return;
 
   const percentage = Math.round(similarity * 100);
   similarityFill.style.width = `${percentage}%`;
-  similarityText.textContent = `${percentage}%`;
+  similarityValue.textContent = `${percentage}%`;
 
-  if (percentage < 40) {
-    similarityFill.style.backgroundColor = "#f44336";
-  } else if (percentage < 70) {
-    similarityFill.style.backgroundColor = "#ff9800";
-  } else {
-    similarityFill.style.backgroundColor = "#4CAF50";
-  }
+  // Animación de destello al cambiar
+  similarityFill.classList.add("pulse");
+  setTimeout(() => {
+    similarityFill.classList.remove("pulse");
+  }, 300);
 }
 
 function highlightProblemAreas(errors) {
@@ -700,10 +706,13 @@ function updateUserScore(score) {
   // Actualizar color basado en puntuación
   if (score >= 4.0) {
     userScoreElement.style.color = "#4CAF50";
+    userScoreElement.style.textShadow = "0 0 10px rgba(76, 175, 80, 0.7)";
   } else if (score >= 2.0) {
     userScoreElement.style.color = "#FFC107";
+    userScoreElement.style.textShadow = "0 0 10px rgba(255, 193, 7, 0.7)";
   } else {
     userScoreElement.style.color = "#F44336";
+    userScoreElement.style.textShadow = "0 0 10px rgba(244, 67, 54, 0.7)";
   }
 
   // Actualizar partículas basado en la puntuación
