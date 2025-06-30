@@ -111,10 +111,12 @@ FALLBACK_LANDMARKS[24] = { x: 0.6, y: 0.6, visibility: 1 };
 let speechQueue = [];
 let isSpeaking = false;
 let currentUtterance = null;
+let lastAudioEndTime = 0; // Tiempo en que terminó el último audio
 
 // Control de feedback
 let lastAutoFeedbackTime = 0;
-const MIN_FEEDBACK_INTERVAL = 5000;
+const MIN_FEEDBACK_INTERVAL = 5000; // 5 segundos entre feedbacks
+const MIN_SPEECH_INTERVAL = 3000; // 3 segundos mínimo entre feedbacks cuando voz activa
 let isGeneratingFeedback = false;
 
 // Sistema de puntuación
@@ -224,7 +226,114 @@ function toggleVoice() {
       currentAudio.pause();
       currentAudio = null;
     }
+    // Limpiar cola de voz
+    speechQueue = [];
     speakText(languageStrings[currentLanguage].voiceOff);
+  }
+}
+
+// ===== SISTEMA MEJORADO DE VOZ =====
+let currentAudio = null;
+
+async function speakText(text) {
+  if (!isVoiceActive || !text || !window.userInteracted) return;
+
+  // Agregar a la cola
+  speechQueue.push(text);
+  processSpeechQueue();
+}
+
+async function processSpeechQueue() {
+  if (isSpeaking || speechQueue.length === 0) return;
+
+  isSpeaking = true;
+  const text = speechQueue.shift();
+
+  // Cancelar cualquier audio anterior
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+
+  try {
+    // Parámetros para voz de meditación profesional
+    const voiceSettings = {
+      stability: 0.75,
+      similarity_boost: 0.9,
+      style: 0.8,
+      use_speaker_boost: true,
+    };
+
+    const voiceId = "pjcYQlDFKMbcOUp6F5GD";
+    const apiKey = "sk_17a56f50cd59ad18cc4b3e483723d25cbf3b508f7dd09916";
+
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "audio/mpeg",
+          "xi-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: "eleven_multilingual_v2",
+          voice_settings: voiceSettings,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error en ElevenLabs:", response.status, errorData);
+
+      // Si es error 401 (no autorizado), no reintentar
+      if (response.status === 401) {
+        throw new Error("API key inválida");
+      }
+
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const audioUrl = URL.createObjectURL(blob);
+    currentAudio = new Audio(audioUrl);
+
+    currentAudio.play();
+    currentAudio.onended = () => {
+      currentAudio = null;
+      isSpeaking = false;
+      lastAudioEndTime = Date.now();
+      processSpeechQueue(); // Procesar siguiente en cola
+    };
+  } catch (error) {
+    console.error("Error con ElevenLabs:", error);
+
+    // Fallback al sintetizador del navegador
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.pitch = 0.9;
+    utterance.rate = 0.85;
+    utterance.volume = 1.0;
+
+    // Buscar voz natural en el idioma actual
+    const voices = speechSynthesis.getVoices();
+    const lang = currentLanguage === "es" ? "es-ES" : "en-US";
+    const naturalVoice = voices.find(
+      (v) => v.lang === lang && v.name.includes("Natural")
+    );
+
+    if (naturalVoice) {
+      utterance.voice = naturalVoice;
+    }
+
+    utterance.onend = () => {
+      isSpeaking = false;
+      lastAudioEndTime = Date.now();
+      processSpeechQueue();
+    };
+
+    speechSynthesis.speak(utterance);
   }
 }
 
@@ -611,11 +720,17 @@ function onResults(results) {
     poseResult.textContent = resultText;
 
     const now = Date.now();
-    if (
+    const timeSinceLastFeedback = now - lastAutoFeedbackTime;
+    const timeSinceLastAudio = now - lastAudioEndTime;
+
+    // Condiciones mejoradas para enviar feedback
+    const shouldSendFeedback =
       !isGeneratingFeedback &&
-      now - lastAutoFeedbackTime > MIN_FEEDBACK_INTERVAL &&
-      !isSpeaking
-    ) {
+      timeSinceLastFeedback > MIN_FEEDBACK_INTERVAL &&
+      (!isVoiceActive || timeSinceLastAudio > MIN_SPEECH_INTERVAL) &&
+      !isSpeaking;
+
+    if (shouldSendFeedback) {
       captureAndSendFeedback(results.poseLandmarks);
       lastAutoFeedbackTime = now;
     }
@@ -858,7 +973,11 @@ function replaceLoadingMessage(loadingId, message, isAuto) {
       <div class="message-content">${message}</div>
     `;
     messageDiv.style.borderLeft = "4px solid #4CAF50";
-    speakText(message);
+
+    // Solo enviar a voz si está activa
+    if (isVoiceActive) {
+      speakText(message);
+    }
   } else {
     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
     messageDiv.style.borderLeft = "4px solid #2196F3";
@@ -890,108 +1009,6 @@ function addFeedbackToHistory(message, isAuto) {
   }
 
   feedbackContainer.appendChild(messageDiv);
-}
-
-// ===== INTEGRACIÓN ELEVENLABS =====
-let currentAudio = null;
-
-async function speakText(text) {
-  if (!isVoiceActive || !text || !window.userInteracted) return;
-
-  // Cancelar cualquier audio anterior
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
-  }
-
-  // Intento con ElevenLabs (máximo 2 reintentos)
-  let elevenLabsSuccess = false;
-  let retryCount = 0;
-
-  while (!elevenLabsSuccess && retryCount < 2) {
-    try {
-      // Parámetros para voz de meditación profesional
-      const voiceSettings = {
-        stability: 0.75,
-        similarity_boost: 0.9,
-        style: 0.8,
-        use_speaker_boost: true,
-      };
-
-      const voiceId = "pjcYQlDFKMbcOUp6F5GD"; // Voz Adam
-      const apiKey = "sk_17a56f50cd59ad18cc4b3e483723d25cbf3b508f7dd09916";
-
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "audio/mpeg",
-            "xi-api-key": apiKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            text: text,
-            model_id: "eleven_multilingual_v2",
-            voice_settings: voiceSettings,
-          }),
-        }
-      );
-
-      // Verificar si la respuesta es válida
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error en ElevenLabs:", response.status, errorData);
-
-        // Si es error 401 (no autorizado), no reintentar
-        if (response.status === 401) break;
-
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      const audioUrl = URL.createObjectURL(blob);
-      currentAudio = new Audio(audioUrl);
-      currentAudio.play();
-
-      elevenLabsSuccess = true;
-
-      // Manejar el evento cuando termine la reproducción
-      currentAudio.onended = () => {
-        currentAudio = null;
-      };
-    } catch (error) {
-      console.error("Intento fallido con ElevenLabs:", error);
-      retryCount++;
-
-      // Pequeño retraso entre reintentos
-      if (retryCount < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
-    }
-  }
-
-  // Si ElevenLabs falló después de los reintentos, usar fallback
-  if (!elevenLabsSuccess) {
-    console.log("Usando fallback de voz del navegador");
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 0.9;
-    utterance.rate = 0.85;
-    utterance.volume = 1.0;
-
-    // Buscar voz natural en el idioma actual
-    const voices = speechSynthesis.getVoices();
-    const lang = currentLanguage === "es" ? "es-ES" : "en-US";
-    const naturalVoice = voices.find(
-      (v) => v.lang === lang && v.name.includes("Natural")
-    );
-
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
-    }
-
-    speechSynthesis.speak(utterance);
-  }
 }
 
 async function setupPose() {
