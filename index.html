@@ -5,6 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Maestro de Yoga Virtual</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+      /* === POPUP DE INSTRUCCIONES - SOLO MEJORAS PARA MÓVIL === */
+      @media (max-width: 768px) {
+        .instructions-popup {
+          padding: 15px;
+        }
+
+        .popup-content {
+          width: 90%;
+          max-height: 85vh;
+          padding: 20px 15px;
+          border-radius: 14px;
+        }
+
+        .popup-content h2 {
+          font-size: 1.6rem;
+        }
+
+        .popup-content ol li {
+          margin-bottom: 12px;
+          font-size: 0.95rem;
+        }
+
+        #closePopup {
+          padding: 12px 25px;
+          font-size: 0.95rem;
+        }
+
+        div#instructionsPopup {
+          width: auto;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .popup-content {
+          padding: 15px 12px;
+          border-radius: 12px;
+        }
+
+        .popup-content h2 {
+          font-size: 1.4rem;
+        }
+
+        .popup-content ol li {
+          font-size: 0.9rem;
+        }
+
+        #closePopup {
+          padding: 10px 20px;
+          font-size: 0.9rem;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="particles-bg"></div>
@@ -183,7 +236,7 @@
       </div>
     </div>
 
-    <!-- Popup de instrucciones -->
+    <!-- Popup de instrucciones (versión original con mejoras móviles) -->
     <div id="instructionsPopup" class="instructions-popup">
       <div class="popup-content">
         <h2>Instrucciones de Uso</h2>
@@ -232,5 +285,45 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
     <script type="module" src="script.js"></script>
+
+    <script>
+      // Manejo mejorado del popup para móviles
+      document.addEventListener("DOMContentLoaded", function () {
+        const instructionsBtn = document.getElementById("instructionsBtn");
+        const instructionsPopup = document.getElementById("instructionsPopup");
+        const closePopup = document.getElementById("closePopup");
+
+        // Abrir popup
+        instructionsBtn.addEventListener("click", function () {
+          instructionsPopup.classList.add("active");
+          document.body.style.overflow = "hidden"; // Evitar scroll del fondo
+        });
+
+        // Cerrar popup
+        closePopup.addEventListener("click", function () {
+          instructionsPopup.classList.remove("active");
+          document.body.style.overflow = ""; // Restaurar scroll
+        });
+
+        // Cerrar al hacer clic fuera del contenido
+        instructionsPopup.addEventListener("click", function (e) {
+          if (e.target === instructionsPopup) {
+            instructionsPopup.classList.remove("active");
+            document.body.style.overflow = ""; // Restaurar scroll
+          }
+        });
+
+        // Cerrar con la tecla ESC
+        document.addEventListener("keydown", function (e) {
+          if (
+            e.key === "Escape" &&
+            instructionsPopup.classList.contains("active")
+          ) {
+            instructionsPopup.classList.remove("active");
+            document.body.style.overflow = ""; // Restaurar scroll
+          }
+        });
+      });
+    </script>
   </body>
 </html>
