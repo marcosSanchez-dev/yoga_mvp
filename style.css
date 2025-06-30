@@ -100,7 +100,7 @@ h1 {
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   background: linear-gradient(to right, #4ecdc4, #4caf50);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  /* -webkit-text-fill-color: transparent; */
   padding: 0 15px;
 }
 
