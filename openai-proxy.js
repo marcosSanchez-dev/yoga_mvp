@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3001;
 // Habilita CORS para todas las rutas
 const corsOptions = {
   origin: "*",
-  methods: "POST",
+  methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type"],
   credentials: true,
   optionsSuccessStatus: 204,
@@ -23,10 +23,11 @@ app.options("*", cors(corsOptions));
 app.use(express.json());
 
 app.post("/feedback", async (req, res) => {
-  // Configura encabezados CORS aquí
+  // Configurar encabezados CORS explícitamente
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
   try {
     const {
       poseDescription,
@@ -152,6 +153,22 @@ app.post("/feedback", async (req, res) => {
   }
 });
 
+// Nuevo endpoint para diagnóstico
+app.get("/health", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.status(200).json({
+    status: "active",
+    timestamp: new Date().toISOString(),
+    version: "1.1.0",
+    services: {
+      openai: "connected",
+      elevenlabs: "ready",
+    },
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Proxy corriendo en http://localhost:${PORT}`);
+  console.log(`• Endpoint de feedback: /feedback`);
+  console.log(`• Endpoint de salud: /health`);
 });
